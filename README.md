@@ -50,14 +50,17 @@ ShieldGuard is engineered specifically to counter these advanced persistent surv
 │
 ├── shieldguard-backend/       # Node.js Express API server
 │   ├── src/
-│   │   ├── ai-analysis.ts     # AI heuristic threat analysis engine
-│   │   ├── database.ts        # JSON file persistence layer
-│   │   ├── threats.ts         # Threat intelligence database
-│   │   ├── index.ts           # API endpoints (TypeScript)
-│   │   └── index.js           # API endpoints (CommonJS, run directly)
-│   ├── data/                  # JSON database (created at runtime)
+│   │   ├── index.js           # Canonical API server (CommonJS, run directly)
+│   │   ├── threatData.js      # Curated threat families + 50k+ signature generator
+│   │   ├── detection.js       # SMS/email phishing heuristics
+│   │   ├── features.js        # Feature/tier catalogue
+│   │   ├── subscriptions.js   # Device entitlement persistence
+│   │   ├── billing.js         # Stripe Checkout + webhook
+│   │   └── middleware.js      # Auth, CORS, rate-limit, validation, error handling
+│   ├── scripts/seed-threats.js# Regenerates data/threats.json (run `npm run seed`)
+│   ├── data/                  # Generated at runtime (gitignored)
+│   ├── tests/                 # Jest + Supertest suite
 │   └── package.json
-│
 └── SPEC.md             # Project specification
 ```
 
@@ -74,10 +77,10 @@ ShieldGuard is engineered specifically to counter these advanced persistent surv
 | **Settings** | Configure protection, scan schedules, anonymization |
 | **Threat Alerts** | Real-time security alert feed with severity indicators |
 | **SMS Security** | Blocks malicious SMS, spoof detection, command injection quarantine |
-| **Cell Signal Protection** | IMSI catcher detection, signal encryption, location masking |
+| **Cell Signal Protection** | Connection inspection + advisory IMSI-catcher / rogue-tower guidance (true baseband detection is not possible on stock hardware — shown honestly) |
 | **Email Security** | Phishing detection, spoof prevention, malicious link sandboxing |
-| **Device Extraction Defense** | PIN-locked forensic extraction prevention, USB blocking, memory encryption |
-| **Social Vault** | End-to-end encrypted social media profile storage |
+| **Device Extraction Defense** | PIN-locked forensic extraction prevention (4–12 digit PIN, session expiry, lockout, optional auto-wipe, biometrics) protecting app data; does **not** block hardware USB extraction of an unlocked device |
+| **Social Vault** | AES-256 encrypted local vault for social credentials/notes (key derived from PIN) |
 | **Anonymization** | Device ID masking, MAC rotation, metadata stripping, fingerprint randomization, tracker blocking |
 
 ### Backend API Features
@@ -98,9 +101,8 @@ ShieldGuard is engineered specifically to counter these advanced persistent surv
 ```bash
 cd shieldguard-backend
 npm install
-npm start        # TypeScript (requires build)
-# OR run directly:
-node src/index.js    # CommonJS, no build needed
+npm run seed     # optional: regenerate the 50k+ signature dataset
+npm start        # runs src/index.js (CommonJS, no build needed)
 ```
 The API will run on http://localhost:3000
 
