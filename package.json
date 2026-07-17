@@ -1,0 +1,11 @@
+{
+  "name": "stitch-emergent-ai-development-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix shieldguard-office run dev",
+    "dev:office": "npm --prefix shieldguard-office run dev",
+    "dev:mobile": "npm --prefix shieldguard-mobile run start",
+    "dev:backend": "npm --prefix shieldguard-backend run start"
+  }
+}

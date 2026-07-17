@@ -1,0 +1,101 @@
+// Truthful feature catalogue. Each feature declares the minimum plan
+// required and whether it is genuinely delivered by the app/backend.
+// Nothing here is a false claim — "deliveredBy" says where the work happens.
+const FEATURES = [
+  {
+    id: 'app_scan',
+    name: 'App Scanner',
+    tier: 'free',
+    description: 'Scan installed apps against known spyware, stalkerware and surveillance signatures.',
+    deliveredBy: 'mobile+backend',
+  },
+  {
+    id: 'threat_feed',
+    name: 'Threat Intelligence Feed',
+    tier: 'free',
+    description: 'Browse the latest known threat signatures curated by ShieldGuard.',
+    deliveredBy: 'backend',
+  },
+  {
+    id: 'domain_reputation',
+    name: 'Domain & IP Reputation',
+    tier: 'free',
+    description: 'Check any domain or IP against the surveillance/command-and-control blocklist.',
+    deliveredBy: 'backend',
+  },
+  {
+    id: 'permission_audit',
+    name: 'Permission Audit',
+    tier: 'standard',
+    description: 'Review installed apps and flag dangerous permission combinations (camera, mic, location, SMS).',
+    deliveredBy: 'mobile',
+  },
+  {
+    id: 'network_monitor',
+    name: 'Network Monitor',
+    tier: 'standard',
+    description: 'Inspect active connections and block those resolve to known malicious infrastructure.',
+    deliveredBy: 'mobile+backend',
+  },
+  {
+    id: 'sms_scan',
+    name: 'SMS Phishing Scan',
+    tier: 'standard',
+    description: 'Heuristic detection of malicious / spoofed SMS and premium-rate scams.',
+    deliveredBy: 'mobile+backend',
+  },
+  {
+    id: 'email_scan',
+    name: 'Email Phishing Scan',
+    tier: 'standard',
+    description: 'Heuristic detection of phishing email including sender spoofing and unsafe links.',
+    deliveredBy: 'mobile+backend',
+  },
+  {
+    id: 'photo_vault',
+    name: 'Encrypted Photo Vault',
+    tier: 'premium',
+    description: 'Store photos with EXIF metadata stripped and encrypted at rest on the device.',
+    deliveredBy: 'mobile',
+  },
+  {
+    id: 'metadata_strip',
+    name: 'Metadata Stripping',
+    tier: 'premium',
+    description: 'Remove GPS, timestamp and device metadata before sharing files.',
+    deliveredBy: 'mobile',
+  },
+  {
+    id: 'id_anonymize',
+    name: 'Identifier Anonymization',
+    tier: 'premium',
+    description: 'Rotate advertising and device identifiers to reduce cross-app tracking.',
+    deliveredBy: 'mobile',
+  },
+  {
+    id: 'priority_support',
+    name: 'Priority Support',
+    tier: 'premium',
+    description: 'Faster response times from the ShieldGuard team.',
+    deliveredBy: 'human',
+  },
+];
+
+const TIER_RANK = { free: 0, standard: 1, premium: 2 };
+
+function tierRank(tier) {
+  return TIER_RANK[tier] != null ? TIER_RANK[tier] : 0;
+}
+
+function featuresForTier(tier) {
+  const rank = tierRank(tier);
+  return FEATURES.filter((f) => tierRank(f.tier) <= rank).map((f) => f.id);
+}
+
+function featureAllowed(featureId, tier) {
+  const f = FEATURES.find((x) => x.id === featureId);
+  if (!f) return false;
+  return tierRank(tier) >= tierRank(f.tier);
+}
+
+module.exports = { FEATURES, TIER_RANK, tierRank, featuresForTier, featureAllowed };

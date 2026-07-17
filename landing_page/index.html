@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShieldGuard - Complete Mobile & Desktop Security</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span style="font-size: 24px; margin-right: 8px;">🛡️</span>
+                ShieldGuard
+            </div>
+            <div class="nav-menu">
+                <a href="#features">Features</a>
+                <a href="#surveillance">Surveillance</a>
+                <a href="#protection-guide">Protection Guide</a>
+                <a href="#platforms">Platforms</a>
+                <a href="#security">Security</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#faq">FAQ</a>
+            </div>
+            <button class="nav-button" data-action="get-started">Get Started</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">🛡️ YOUR DEVICE IS YOUR FORTRESS</div>
+            <h1 class="hero-title">
+                Complete Security for All Your Devices
+            </h1>
+            <p class="hero-subtitle">
+                Protect PC, Mac, iPhone, and Android from spyware, malware, surveillance tools, and intrusive tracking. Enterprise-grade security meets consumer simplicity.
+            </p>
+            <div class="hero-actions">
+                <input type="text" placeholder="Enter your email..." class="email-input" id="emailInput">
+                <button class="cta-button" data-action="download">Download Now</button>
+            </div>
+            <div class="hero-logos">
+                <span>Trusted by</span>
+                <div class="logo-grid">
+                    <div class="logo-item">💻 Windows</div>
+                    <div class="logo-item">🍎 macOS</div>
+                    <div class="logo-item">🤖 Android</div>
+                    <div class="logo-item">📱 iOS</div>
+                </div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="device-mockup">
+                <div class="phone-frame">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <div class="screen-content">
+                            <div class="shield-icon">🛡️</div>
+                            <div class="status-good">Protected</div>
+                            <div class="threat-count">0 Threats</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="glow-effect"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- What to Protect Section -->
+    <section class="what-to-protect" id="features">
+        <div class="section-header">
+            <h2>What's Your Biggest Security Concern?</h2>
+            <p>ShieldGuard protects against every major threat</p>
+        </div>
+        <div class="protection-grid">
+            <div class="protection-card">
+                <div class="icon-circle">👁️</div>
+                <h3>Spyware & Surveillance</h3>
+                <p>Protect against Pegasus, FinFisher, Predator, and government surveillance tools</p>
+                <button class="card-button" data-target="surveillance">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">🦠</div>
+                <h3>Malware & Viruses</h3>
+                <p>Detection of Emotet, FluBot, Triada, xHelper, Joker and emerging threats</p>
+                <button class="card-button" data-target="security">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">📍</div>
+                <h3>Privacy & Tracking</h3>
+                <p>Block data exfiltration, location tracking, keyloggers, and excessive app permissions</p>
+                <button class="card-button" data-target="security">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">🌐</div>
+                <h3>Network Security</h3>
+                <p>Monitor network traffic and block suspicious connections in real-time</p>
+                <button class="card-button" data-target="security">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">⚙️</div>
+                <h3>Permission Audit</h3>
+                <p>Review and control dangerous app permissions automatically</p>
+                <button class="card-button" data-target="security">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">🚨</div>
+                <h3>Real-time Alerts</h3>
+                <p>Instant notifications for detected threats with one-click remediation</p>
+                <button class="card-button" data-target="protection-guide">Learn More →</button>
+            </div>
+        </div>
+        <button class="load-more-btn" data-action="load-more">Load More Features</button>
+
+        <!-- Hidden extra feature cards revealed by "Load More Features" -->
+        <div class="protection-grid extra-features" id="extraFeatures" hidden>
+            <div class="protection-card">
+                <div class="icon-circle">💬</div>
+                <h3>SMS &amp; Text Security</h3>
+                <p>Detect and quarantine malicious SMS, block spoofing, and report carrier-level threats.</p>
+                <button class="card-button" data-target="surveillance">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">📡</div>
+                <h3>Cell Signal Protection</h3>
+                <p>Review cell-network info and monitor connections. Honest note: a third-party app can't detect IMSI catchers (Stingray) on stock Android/iOS.</p>
+                <button class="card-button" data-target="surveillance">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">📧</div>
+                <h3>Email Phishing Shield</h3>
+                <p>Block phishing, sandbox malicious links, and verify SPF/DKIM/DMARC on inbound mail.</p>
+                <button class="card-button" data-target="security">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">🔐</div>
+                <h3>Social Media Vault</h3>
+                <p>Encrypt profile associations, isolate cookies, and block third-party data sharing.</p>
+                <button class="card-button" data-target="surveillance">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">🔢</div>
+                <h3>PIN Data Lock</h3>
+                <p>4–12 digit extraction lock with biometric fallback and optional auto-wipe on failure.</p>
+                <button class="card-button" data-target="surveillance">Learn More →</button>
+            </div>
+            <div class="protection-card">
+                <div class="icon-circle">🛰️</div>
+                <h3>Autonomous Evasion</h3>
+                <p>Block drone/UAV comms and autonomous surveillance infrastructure in real time.</p>
+                <button class="card-button" data-target="surveillance">Learn More →</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Supported Platforms Section -->
+    <section class="platforms" id="platforms">
+        <div class="section-header">
+            <h2>Universal Protection</h2>
+            <p>Seamless security across all your devices</p>
+        </div>
+        <div class="platforms-grid">
+            <div class="platform-card">
+                <div class="platform-header">
+                    <span class="os-icon">🪟</span>
+                    <h3>Windows</h3>
+                </div>
+                <ul class="feature-list">
+                    <li>✓ Real-time Protection</li>
+                    <li>✓ Application Scanner</li>
+                    <li>✓ Network Monitor</li>
+                    <li>✓ Vulnerability Scan</li>
+                    <li>✓ Schedule Scans</li>
+                </ul>
+                <button class="platform-button" data-platform="web">Open Web App</button>
+            </div>
+
+            <div class="platform-card">
+                <div class="platform-header">
+                    <span class="os-icon">🍎</span>
+                    <h3>macOS</h3>
+                </div>
+                <ul class="feature-list">
+                    <li>✓ Real-time Protection</li>
+                    <li>✓ Application Scanner</li>
+                    <li>✓ Network Monitor</li>
+                    <li>✓ Vulnerability Scan</li>
+                    <li>✓ Schedule Scans</li>
+                </ul>
+                <button class="platform-button" data-platform="web">Open Web App</button>
+            </div>
+
+            <div class="platform-card">
+                <div class="platform-header">
+                    <span class="os-icon">🤖</span>
+                    <h3>Android</h3>
+                </div>
+                <ul class="feature-list">
+                    <li>✓ App Scanner</li>
+                    <li>✓ Permission Audit</li>
+                    <li>✓ Network Monitor</li>
+                    <li>✓ Real-time Alerts</li>
+                    <li>✓ Threat Database</li>
+                </ul>
+                <button class="platform-button" data-platform="android">Get on Play Store</button>
+            </div>
+
+            <div class="platform-card">
+                <div class="platform-header">
+                    <span class="os-icon">📱</span>
+                    <h3>iOS/iPadOS</h3>
+                </div>
+                <ul class="feature-list">
+                    <li>✓ App Scanner</li>
+                    <li>✓ Permission Audit</li>
+                    <li>✓ Network Monitor</li>
+                    <li>✓ Real-time Alerts</li>
+                    <li>✓ Threat Database</li>
+                </ul>
+                <button class="platform-button" data-platform="ios">Get on App Store</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security Features Section -->
+    <section class="security-features" id="security">
+        <div class="section-header">
+            <h2>Enterprise-Grade Security</h2>
+            <p>Powered by threat intelligence and machine learning</p>
+        </div>
+        
+        <div class="features-showcase">
+            <div class="feature-block">
+                <div class="feature-icon">📊</div>
+                <h3>Dashboard</h3>
+                <p>Real-time security status overview with comprehensive threat analysis</p>
+            </div>
+
+            <div class="feature-block">
+                <div class="feature-icon">🔍</div>
+                <h3>Advanced Scanner</h3>
+                <p>Deep scan against known spyware, malware & surveillance signatures with behavioral detection</p>
+            </div>
+
+            <div class="feature-block">
+                <div class="feature-icon">🌍</div>
+                <h3>Network Monitor</h3>
+                <p>Real-time traffic analysis with domain and IP reputation checking</p>
+            </div>
+
+            <div class="feature-block">
+                <div class="feature-icon">🔐</div>
+                <h3>Permission Manager</h3>
+                <p>Control app permissions and identify privacy risks automatically</p>
+            </div>
+
+            <div class="feature-block">
+                <div class="feature-icon">⚡</div>
+                <h3>Instant Alerts</h3>
+                <p>Real-time notifications with one-click threat remediation</p>
+            </div>
+
+            <div class="feature-block">
+                <div class="feature-icon">🤝</div>
+                <h3>Multi-Device Sync</h3>
+                <p>Unified protection settings and threat reports across all devices</p>
+            </div>
+        </div>
+
+        <div class="threat-database">
+            <h3>Comprehensive Threat Intelligence</h3>
+            <p class="live-stats" id="liveStats">Connecting to live threat intelligence…</p>
+            <div class="threat-categories">
+                <div class="threat-item">
+                    <strong id="knownThreats">—</strong> Known Threats
+                </div>
+                <div class="threat-item">
+                    <strong>Real-time</strong> Updates
+                </div>
+                <div class="threat-item">
+                    <strong>24/7</strong> Monitoring
+                </div>
+                <div class="threat-item">
+                    <strong>Machine Learning</strong> Detection
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advanced Surveillance Prevention Section -->
+    <section class="advanced-threats" id="surveillance">
+        <div class="section-header">
+            <h2>Advanced Surveillance Prevention</h2>
+            <p>Protect against sophisticated threats targeting activists, journalists, and privacy advocates</p>
+        </div>
+        <div class="honest-note" id="honestNote">
+            <strong>Honest about limits:</strong> ShieldGuard delivers what a mobile app can verifiably do — app &amp; network scanning, permission audit, heuristic SMS/email analysis, metadata stripping and identifier rotation. It cannot intercept the cellular baseband, block OS-level facial recognition, or spoof hardware identifiers. We don't claim otherwise.
+        </div>
+
+        <div class="threats-showcase">
+            <div class="threat-card">
+                <div class="threat-icon">🎯</div>
+                <h3>AI Data Integration Blocking</h3>
+                <p>Prevents data aggregation into enterprise profiling platforms</p>
+            </div>
+
+            <div class="threat-card">
+                <div class="threat-icon">📍</div>
+                <h3>Location Tracking Prevention</h3>
+                <p>Blocks tracking across city blocks and coordinated surveillance</p>
+            </div>
+
+            <div class="threat-card">
+                <div class="threat-icon">👤</div>
+                <h3>Social Profile Privacy</h3>
+                <p>Reduce social-media data sharing. OS-level facial recognition can't be blocked by a third-party app — we're honest about that.</p>
+            </div>
+
+            <div class="threat-card">
+                <div class="threat-icon">🔓</div>
+                <h3>Device Extraction Prevention</h3>
+                <p>PIN-protected lock prevents forensic device extraction</p>
+            </div>
+
+            <div class="threat-card">
+                <div class="threat-icon">🔬</div>
+                <h3>Forensics Tool Blocking</h3>
+                <p>Hardware-backed prevention of unauthorized data extraction tools</p>
+            </div>
+
+            <div class="threat-card">
+                <div class="threat-icon">🛰️</div>
+                <h3>High-Risk User Guidance</h3>
+                <p>Privacy playbooks for journalists, activists and dissidents facing targeted surveillance.</p>
+            </div>
+        </div>
+
+        <div class="data-extraction-protection">
+            <h3>Data Extraction Protection</h3>
+            <p>User-created PIN prevents unauthorized device extraction</p>
+            <ul class="extraction-features">
+                <li>✓ 4-12 Digit PIN Lock</li>
+                <li>✓ Biometric Fallback Authentication</li>
+                <li>✓ Forensic Tool Detection</li>
+                <li>✓ Extraction Attempt Logging</li>
+                <li>✓ Remote Device Lockdown</li>
+                <li>✓ Social Media Profile Encryption</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Protection Guide Section -->
+    <section class="protection-guide" id="protection-guide">
+        <div class="section-header">
+            <h2>How to Protect Against Pegasus & Similar Spyware</h2>
+            <p>Advanced surveillance threats like Pegasus exploit system-level vulnerabilities in mobile operating systems. Here's how to defend yourself.</p>
+        </div>
+
+        <div class="guide-steps">
+            <div class="guide-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Uninstall Unknown Apps</h3>
+                    <p>Scan your full application list periodically and delete anything unfamiliar. Surveillance payloads often embed themselves under nondescript names that blend into system menus.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Keep Your OS Updated</h3>
+                    <p>Turn on automatic OS updates and apply patches without delay. Zero-click spyware relies on known software flaws — staying current closes those doors.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Review App Permissions</h3>
+                    <p>Audit which apps hold sensitive permissions like camera, microphone, and GPS. If a utility or game doesn't require those capabilities, restrict them immediately.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Use ShieldGuard</h3>
+                    <p>ShieldGuard's real-time app scanning, network traffic analysis, and domain reputation engine catch surveillance callbacks and block malicious infrastructure automatically.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h3>Enable Multi-Factor Authentication</h3>
+                    <p>Enable multi-factor authentication across email, financial services, and social platforms. Even if credentials get compromised, MFA blocks unauthorized entry.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <h3>Watch for Warning Signs</h3>
+                    <p>Rapid battery drain, data usage bursts with no clear cause, processes running unseen in the background, or the camera light activating unprompted are common red flags.</p>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing" id="pricing">
+        <div class="section-header">
+            <h2>Transparent Pricing for Every User</h2>
+            <p>Choose the protection level that fits your needs</p>
+        </div>
+
+        <div class="pricing-toggle">
+            <button class="toggle-btn active">Individual</button>
+            <button class="toggle-btn">Family</button>
+        </div>
+
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <h3>Free</h3>
+                <div class="price">$0<span>/month</span></div>
+                <ul class="pricing-features">
+                    <li>✓ Basic Threat Scanning</li>
+                    <li>✓ Manual Scans Only</li>
+                    <li>✓ Threat Database</li>
+                    <li>✗ Real-time Protection</li>
+                    <li>✗ Network Monitoring</li>
+                </ul>
+                <button class="pricing-button secondary" data-plan="free">Get Started</button>
+            </div>
+
+            <div class="pricing-card featured">
+                <h3>Standard</h3>
+                <div class="price">$4.99<span>/month</span></div>
+                <div class="pricing-badge">Most Popular</div>
+                <ul class="pricing-features">
+                    <li>✓ Real-time Protection</li>
+                    <li>✓ Scheduled Scans</li>
+                    <li>✓ Network Monitoring</li>
+                    <li>✓ Permission Audit</li>
+                    <li>✓ Email Support</li>
+                </ul>
+                <button class="pricing-button primary" data-plan="standard">Start Free Trial</button>
+            </div>
+
+            <div class="pricing-card">
+                <h3>Premium</h3>
+                <div class="price">$9.99<span>/month</span></div>
+                <ul class="pricing-features">
+                    <li>✓ Everything in Standard</li>
+                    <li>✓ Priority Support</li>
+                    <li>✓ Advanced Analytics</li>
+                    <li>✓ Custom Scan Profiles</li>
+                    <li>✓ Family Protection (5 devices)</li>
+                </ul>
+                <button class="pricing-button secondary" data-plan="premium">Start Free Trial</button>
+            </div>
+
+            <div class="pricing-card">
+                <h3>Enterprise</h3>
+                <div class="price">Custom</div>
+                <ul class="pricing-features">
+                    <li>✓ Everything in Premium</li>
+                    <li>✓ Unlimited Devices</li>
+                    <li>✓ Advanced Reporting</li>
+                    <li>✓ Dedicated Account Manager</li>
+                    <li>✓ Custom Integration</li>
+                </ul>
+                <button class="pricing-button secondary" data-action="contact-sales">Contact Sales</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq" id="faq">
+        <div class="section-header">
+            <h2>Frequently Asked Questions</h2>
+            <p>Everything you need to know about ShieldGuard</p>
+        </div>
+
+        <div class="faq-container">
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>Is ShieldGuard safe to use?</span>
+                    <span class="faq-toggle">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Yes. ShieldGuard is built with a security-first architecture and uses industry-standard encryption. We never collect personal data from your scans.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>How often are threat definitions updated?</span>
+                    <span class="faq-toggle">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Our threat database is actively maintained and extended over time as new surveillance tools are documented. You're protected against the threats we track.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>Can I use ShieldGuard across multiple devices?</span>
+                    <span class="faq-toggle">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Yes. Our Premium plan includes protection for up to 5 devices. Enterprise plans offer unlimited device protection.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>Does ShieldGuard slow down my device?</span>
+                    <span class="faq-toggle">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>No. Our lightweight architecture uses minimal system resources. Most users see no performance impact.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>What should I do if a threat is detected?</span>
+                    <span class="faq-toggle">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>ShieldGuard provides instant notifications with one-click remediation options. You can quarantine, remove, or exclude threats as needed.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>Is my data sent to ShieldGuard servers?</span>
+                    <span class="faq-toggle">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>No. Local scanning happens on your device. Only anonymized threat signatures are sent for our database updates.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="cta-content">
+            <h2>Start Your Free Trial Today</h2>
+            <p>30-day free trial. No credit card required. Cancel anytime.</p>
+            <div class="cta-actions">
+                <button class="cta-button primary" data-action="download">Download Now</button>
+                <button class="cta-button secondary" data-action="view-plans">View Plans</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>ShieldGuard</h4>
+                <p>Complete security for all your devices</p>
+            </div>
+            <div class="footer-section">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="#">Features</a></li>
+                    <li><a href="#">Pricing</a></li>
+                    <li><a href="#">Security</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="#">About</a></li>
+                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">Privacy</a></li>
+                    <li><a href="#">Terms</a></li>
+                    <li><a href="#">Security</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 ShieldGuard. All rights reserved.</p>
+            <div class="social-links">
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+                <a href="#">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

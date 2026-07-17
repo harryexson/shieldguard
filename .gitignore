@@ -1,0 +1,16 @@
+# Build/run logs
+*.log
+b_err.log
+b_out.log
+dev_err.log
+dev_out.log
+orch_err.log
+orch_out.log
+l_err.log
+l_out.log
+
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store
