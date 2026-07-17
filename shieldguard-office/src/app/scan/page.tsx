@@ -117,6 +117,21 @@ export default function ScanPage() {
           <p className="text-sm text-gray-400">Scan your device for threats, spyware, and vulnerabilities</p>
         </div>
 
+        <div className="flex justify-center">
+          <div className="flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-5 py-3">
+            <Server className="size-5 text-blue-400" />
+            <div>
+              <p className="text-xs text-gray-400">Known threats tracked by ShieldGuard</p>
+              <p className="text-lg font-bold text-gray-100">
+                {backendThreats !== null ? backendThreats.toLocaleString() : '—'}
+                <span className={`ml-2 text-xs font-medium ${live ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {live ? 'Live' : 'Demo'}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card className={`transition-all ${quickScanning ? 'ring-2 ring-blue-500' : ''}`}>
             <CardContent className="flex flex-col items-center gap-4 px-4 py-6">

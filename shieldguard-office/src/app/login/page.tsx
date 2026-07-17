@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { DEMO_QUICK_LOGINS } from '@/lib/users';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +26,8 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Welcome back!');
-      router.push('/dashboard');
+      const redirect = searchParams.get('redirect');
+      router.push(redirect && redirect.startsWith('/') ? redirect : '/dashboard');
     } catch {
       toast.error('Invalid email or password. Check the credentials below.');
     }

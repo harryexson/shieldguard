@@ -98,4 +98,7 @@ export function stripPassword(u: DemoUser): User {
   return user;
 }
 
+/** Public user list (no secrets) — for UI lists / impersonation menus. */
+export const MOCK_USERS: User[] = DEMO_USERS.map(stripPassword);
+
 export { demoPasswordFor, DEMO_PASSWORD_SUFFIX };

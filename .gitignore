@@ -12,5 +12,13 @@ l_out.log
 # Dependencies
 node_modules/
 
+# Generated / runtime data (regenerated via `npm run seed`)
+shieldguard-backend/data/
+
+# Env files (keep examples)
+.env
+.env.local
+*.local
+
 # OS
 .DS_Store

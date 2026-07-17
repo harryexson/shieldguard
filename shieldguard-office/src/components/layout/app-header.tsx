@@ -15,7 +15,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
-import { useAuth, MOCK_USERS } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
+import { MOCK_USERS } from '@/lib/users';
 import { ROLE_LABELS } from '@/lib/rbac';
 import type { User } from '@/lib/rbac';
 

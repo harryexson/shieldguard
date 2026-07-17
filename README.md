@@ -264,4 +264,22 @@ Opens at http://localhost:3001 (configured to avoid conflict with backend API on
 
 ---
 
+## Current Status & Known Limitations
+
+This repository was re-audited on 2026-07-17. A full, honest accounting of what is
+real, what was hardened, and what remains a gap is in **[AUDIT_AND_GAPS.md](./AUDIT_AND_GAPS.md)**.
+Key points:
+
+- The backend threat database is now **genuinely 50,000+ signatures** (regenerated via
+  `npm run seed` in `shieldguard-backend`); previously the docs overstated a 50k count
+  from only ~20 hand-written entries.
+- The mobile app's **Device Extraction PIN lock** and **Social Media Encryption Vault**
+  are now real client-side implementations (PIN-hashed, AES-encrypted at rest).
+- Some advertised capabilities are **physically impossible on stock phone hardware**
+  (true IMSI-catcher/Stingray detection, native GPS spoofing, drone/RF blocking, defeating
+  physical forensic extraction). These are documented honestly in-app and are not faked.
+- The office app previously had **fake auth (plaintext creds in source, no session, no route
+  protection)**. It now has hashed-password auth, an httpOnly signed session cookie, and
+  middleware route protection; demo users remain source-seeded by design.
+
 **Stay safe. Stay protected.** 🛡️

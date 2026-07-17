@@ -12,7 +12,8 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { MOCK_USERS, useAuth } from '@/lib/auth';
+import { MOCK_USERS } from '@/lib/users';
+import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS, type Role } from '@/lib/rbac';
 import { timeAgo } from '@/lib/data';
 
