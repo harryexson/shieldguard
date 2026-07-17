@@ -6,7 +6,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { SIDEBAR_ITEMS, ROLE_LABELS } from '@/lib/rbac';
-import { useAuth, MOCK_USERS } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
+import { DEMO_QUICK_LOGINS } from '@/lib/users';
 import { cn } from '@/lib/utils';
 import { LogOut, X } from 'lucide-react';
 import type { User } from '@/lib/rbac';
@@ -112,13 +113,13 @@ export function AppSidebar({ open, onToggle }: AppSidebarProps) {
         ) : (
           <>
             <div className="px-1 pb-1 text-xs font-medium text-slate-500">Quick Login</div>
-            {MOCK_USERS.slice(0, 4).map((mu: User) => (
+            {DEMO_QUICK_LOGINS.map((mu) => (
               <Button
                 key={mu.id}
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start gap-2 text-xs text-slate-400 hover:text-slate-200"
-                onClick={() => login(mu.email, 'demo')}
+                onClick={() => login(mu.email, mu.demoPassword)}
               >
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-800 text-[10px] font-medium text-slate-400">
                   {mu.name.charAt(0)}

@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, MOCK_USERS } from '@/lib/auth';
-import { ROLE_LABELS } from '@/lib/rbac';
+import { useAuth } from '@/lib/auth';
+import { DEMO_QUICK_LOGINS } from '@/lib/users';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -113,16 +113,16 @@ export default function LoginPage() {
               All demo accounts (click to fill):
             </div>
             <div className="space-y-1">
-              {MOCK_USERS.map((user) => (
+              {DEMO_QUICK_LOGINS.map((user) => (
                 <button
                   key={user.id}
                   type="button"
-                  onClick={() => fillCredentials(user.email, `${user.name.split(' ')[0].toLowerCase()}123`)}
+                  onClick={() => fillCredentials(user.email, user.demoPassword)}
                   className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
                 >
                   <span className="font-medium text-gray-300">{user.email}</span>
                   <span className="ml-2 text-xs text-gray-600">
-                    ({ROLE_LABELS[user.role]})
+                    ({user.name})
                   </span>
                 </button>
               ))}

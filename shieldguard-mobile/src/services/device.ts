@@ -1,4 +1,4 @@
-import { Settings } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DEVICE_ID_KEY = 'shieldguard_device_id';
 
@@ -18,34 +18,54 @@ function generateUuid(): string {
 }
 
 // Returns a stable per-install device identifier used to track subscription
-// entitlements on the backend. Persisted in React Native Settings so it
-// survives app restarts.
-export function getDeviceId(): string {
+// entitlements on the backend. Persisted in AsyncStorage so it survives app
+// restarts (replaces RN Settings, which is deprecated/iOS-only).
+export async function getDeviceIdAsync(): Promise<string> {
   if (cachedDeviceId) return cachedDeviceId;
   try {
-    const stored = Settings.get(DEVICE_ID_KEY) as string | undefined;
+    const stored = await AsyncStorage.getItem(DEVICE_ID_KEY);
     if (stored) {
       cachedDeviceId = stored;
       return stored;
     }
   } catch {
-    // Settings unavailable (e.g. some test environments) — fall through.
+    // AsyncStorage unavailable (e.g. some test environments) — fall through.
   }
   const generated = `sg_${generateUuid()}`;
   cachedDeviceId = generated;
   try {
-    Settings.set({ [DEVICE_ID_KEY]: generated });
+    await AsyncStorage.setItem(DEVICE_ID_KEY, generated);
   } catch {
     // Non-fatal: entitlements will be per-session until persisted.
   }
   return generated;
 }
 
-export function setDeviceId(id: string): void {
+// Synchronous accessor for call sites that need a quick value synchronously
+// (falls back to a fresh id that is then persisted). Prefer getDeviceIdAsync.
+export function getDeviceId(): string {
+  if (cachedDeviceId) return cachedDeviceId;
+  const generated = `sg_${generateUuid()}`;
+  cachedDeviceId = generated;
+  getDeviceIdAsync().catch(() => undefined);
+  return generated;
+}
+
+export async function setDeviceId(id: string): Promise<void> {
   cachedDeviceId = id;
   try {
-    Settings.set({ [DEVICE_ID_KEY]: id });
+    await AsyncStorage.setItem(DEVICE_ID_KEY, id);
   } catch {
     // ignore
   }
+}
+
+// Clears all locally stored ShieldGuard data (used by the auto-wipe feature).
+export async function clearLocalData(): Promise<void> {
+  try {
+    await AsyncStorage.clear();
+  } catch {
+    // ignore
+  }
+  cachedDeviceId = null;
 }

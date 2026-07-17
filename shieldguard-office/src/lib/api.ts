@@ -24,9 +24,33 @@ class ApiClient {
 
 export const api = new ApiClient(API_BASE);
 
+export interface Stats {
+  totalThreats: number;
+  knownHashes: number;
+  suspiciousDomains: number;
+  scansPerformed: number;
+  totalAlerts: number;
+  unreadAlerts: number;
+}
+
+export interface ThreatFeedItem {
+  id: string;
+  type: string;
+  severity: string;
+  deviceName?: string;
+  userName?: string;
+  timestamp: number;
+  status: string;
+}
+
 export const officeApi = {
   health: () => api.get<{ status: string }>('/health'),
-  stats: () => api.get<{ totalThreats: number; suspiciousDomains: number; alertsCount: number; scansPerformed: number; totalAlerts: number; lastScan: number | null }>('/stats'),
-  threats: () => api.get<any[]>('/threats'),
+  stats: () => api.get<Stats>('/stats'),
+  threatsFeed: () => api.get<ThreatFeedItem[]>('/threats/feed'),
+  threats: (limit = 20, offset = 0) => api.get<any[]>(`/threats?limit=${limit}&offset=${offset}`),
+  features: () => api.get<any[]>('/features'),
   alerts: () => api.get<any[]>('/alerts'),
+  markAlertRead: (id: string) => api.patch(`/alerts/${id}/read`),
+  me: (deviceId?: string) => api.get<{ tier: string; plan: string; features: string[] }>(`/me${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`),
+  billingPlans: () => api.get<any[]>('/billing/plans'),
 };

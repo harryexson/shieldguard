@@ -89,6 +89,19 @@ export const alertApi = {
   },
 };
 
+// ─── Stats API ──────────────────────────────────────────────────────
+export const statsApi = {
+  getStats: async (): Promise<{
+    totalThreats: number;
+    knownHashes: number;
+    suspiciousDomains: number;
+    [key: string]: any;
+  }> => {
+    const response = await api.get('/stats');
+    return response.data;
+  },
+};
+
 // ─── Settings API ────────────────────────────────────────────────────
 export const settingsApi = {
   getSettings: async (): Promise<Settings> => {

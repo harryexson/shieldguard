@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shield, ShieldCheck, ShieldAlert, Scan, Search, Clock, HardDrive, Globe, AlertTriangle, Bug, Wifi, FileWarning, Server } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/lib/auth';
+import { officeApi } from '@/lib/api';
 
 interface ScanResult {
   type: 'quick' | 'full';
@@ -33,6 +34,26 @@ export default function ScanPage() {
   const [animating, setAnimating] = useState(false);
 
   const isEnterprise = user?.role === 'enterprise_admin' || user?.role === 'enterprise_it_support' || user?.role === 'super_admin';
+
+  const [backendThreats, setBackendThreats] = useState<number | null>(null);
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    officeApi
+      .stats()
+      .then((s) => {
+        if (!active) return;
+        setBackendThreats(s.totalThreats);
+        setLive(true);
+      })
+      .catch(() => {
+        if (active) setLive(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const runQuickScan = () => {
     setQuickScanning(true);

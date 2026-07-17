@@ -1,0 +1,44 @@
+{
+  "scans": [],
+  "alerts": [
+    {
+      "id": "171e7f9a-bf91-4876-9a7b-2d557bd5fd4e",
+      "timestamp": 1784313998695,
+      "title": "Threats Detected During Scan",
+      "message": "Found 1 threat(s) across 2 scanned application(s)",
+      "severity": "high",
+      "type": "threat",
+      "read": false
+    },
+    {
+      "id": "47ff062b-ea1a-46e0-8140-efa008269366",
+      "timestamp": 1784310398778,
+      "title": "New Threat Detected",
+      "message": "A new spyware variant has been identified in our threat database",
+      "severity": "high",
+      "type": "threat",
+      "read": false
+    }
+  ],
+  "settings": {
+    "autoScanEnabled": false,
+    "scanInterval": 86400000,
+    "realTimeMonitoring": true,
+    "notificationsEnabled": true,
+    "threatAlertsEnabled": true,
+    "networkMonitoringEnabled": true,
+    "backgroundScanning": false
+  }
+}: false
+    }
+  ],
+  "settings": {
+    "autoScanEnabled": false,
+    "scanInterval": 86400000,
+    "realTimeMonitoring": true,
+    "notificationsEnabled": true,
+    "threatAlertsEnabled": true,
+    "networkMonitoringEnabled": true,
+    "backgroundScanning": false
+  }
+}

@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/rbac';
 import { CUSTOMERS, THREAT_EVENTS, formatCurrency, timeAgo } from '@/lib/data';
+import { officeApi, type Stats } from '@/lib/api';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -235,11 +237,17 @@ function RecentCustomers() {
   );
 }
 
-function EnterpriseSecurityStats() {
-  const totalThreats = THREAT_EVENTS.length;
-  const blocked = THREAT_EVENTS.filter((t) => t.status === 'blocked').length;
-  const critical = THREAT_EVENTS.filter((t) => t.severity === 'critical').length;
-  const scanning = THREAT_EVENTS.filter((t) => t.status === 'scanning').length;
+function EnterpriseSecurityStats({ live }: { live?: Stats | null }) {
+  const totalThreats = live ? live.totalThreats : THREAT_EVENTS.length;
+  const blocked = live
+    ? live.totalThreats - live.unreadAlerts
+    : THREAT_EVENTS.filter((t) => t.status === 'blocked').length;
+  const critical = live
+    ? live.unreadAlerts
+    : THREAT_EVENTS.filter((t) => t.severity === 'critical').length;
+  const scanning = live
+    ? live.scansPerformed
+    : THREAT_EVENTS.filter((t) => t.status === 'scanning').length;
 
   const stats = [
     { label: 'Total Threats', value: totalThreats.toString(), icon: AlertTriangle, color: 'text-red-400' },
@@ -270,8 +278,41 @@ function EnterpriseSecurityStats() {
   );
 }
 
+function LiveBanner({ live }: { live: boolean }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-900/60 px-3 py-2">
+      <span
+        className={`h-2 w-2 rounded-full ${live ? 'bg-emerald-400' : 'bg-amber-400'}`}
+      />
+      <span className="text-xs font-medium text-gray-300">
+        Data source: <span className={live ? 'text-emerald-400' : 'text-amber-400'}>{live ? 'Live' : 'Demo'}</span>
+        {!live && <span className="ml-1 text-gray-500">(backend unreachable — showing mock data)</span>}
+      </span>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    officeApi
+      .stats()
+      .then((s) => {
+        if (!active) return;
+        setStats(s);
+        setLive(true);
+      })
+      .catch(() => {
+        if (active) setLive(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (!user) return null;
 
@@ -290,6 +331,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        <LiveBanner live={live} />
+
         {isOffice && (
           <>
             <OfficeKpiCards />
@@ -302,7 +345,7 @@ export default function DashboardPage() {
 
         {isEnterprise && (
           <>
-            <EnterpriseSecurityStats />
+            <EnterpriseSecurityStats live={stats} />
             <div>
               <h2 className="mb-3 text-lg font-semibold text-gray-200">Quick Actions</h2>
               <EnterpriseQuickActions />

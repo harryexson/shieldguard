@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from '
 import { StatusCard, SecurityScore, ScanButton } from '../components/StatusCard';
 import { useAppScanner, useNetworkMonitor, useSecurityAudit, useDeviceInfo } from '../hooks/useSecurity';
 import { useSecurity } from '../context/SecurityContext';
+import { statsApi } from '../services/api';
+import { alertApi } from '../services/api';
 import { COLORS } from '../constants';
 
 export function DashboardScreen({ navigation }: any) {
@@ -11,6 +13,7 @@ export function DashboardScreen({ navigation }: any) {
   const { performAudit } = useSecurityAudit();
   const { getDeviceInfo } = useDeviceInfo();
   const { state, dispatch } = useSecurity();
+  const [offline, setOffline] = React.useState(false);
 
   const handleScan = async () => {
     await performScan();
@@ -27,36 +30,60 @@ export function DashboardScreen({ navigation }: any) {
 
   const unreadAlerts = state.alerts.filter(a => !a.read).length;
 
+  // Load real backend data with graceful fallback to mock when offline.
   React.useEffect(() => {
-    dispatch({ type: 'SET_ALERTS', payload: [
-      {
-        id: '1',
-        timestamp: Date.now() - 3600000,
-        title: 'Suspicious App Detected',
-        message: 'System Update Pro has suspicious permissions',
-        severity: 'high',
-        type: 'warning',
-        read: false,
-      },
-      {
-        id: '2',
-        timestamp: Date.now() - 7200000,
-        title: 'Network Warning',
-        message: 'Unusual connection to update-check.system detected',
-        severity: 'medium',
-        type: 'warning',
-        read: false,
-      },
-      {
-        id: '3',
-        timestamp: Date.now() - 86400000,
-        title: 'Weekly Security Reminder',
-        message: 'Run a full scan to ensure your device is protected',
-        severity: 'low',
-        type: 'info',
-        read: true,
-      },
-    ]});
+    let cancelled = false;
+    (async () => {
+      try {
+        const [stats, alerts] = await Promise.all([
+          statsApi.getStats().catch(() => null),
+          alertApi.getAlerts().catch(() => []),
+        ]);
+        if (cancelled) return;
+        if (stats) {
+          dispatch({
+            type: 'SET_STATS',
+            payload: {
+              totalApps: stats.totalThreats ?? state.stats.totalApps,
+              safeApps: state.stats.safeApps,
+              warningApps: state.stats.warningApps,
+              dangerousApps: stats.knownHashes ? Math.min(3, state.stats.dangerousApps) : state.stats.dangerousApps,
+              lastScan: state.stats.lastScan,
+            },
+          });
+        }
+        if (alerts && alerts.length) {
+          dispatch({ type: 'SET_ALERTS', payload: alerts });
+        } else if (!alerts) {
+          dispatch({ type: 'SET_ALERTS', payload: [
+            {
+              id: '1',
+              timestamp: Date.now() - 3600000,
+              title: 'Suspicious App Detected',
+              message: 'System Update Pro has suspicious permissions',
+              severity: 'high' as const,
+              type: 'warning' as const,
+              read: false,
+            },
+            {
+              id: '2',
+              timestamp: Date.now() - 7200000,
+              title: 'Network Warning',
+              message: 'Unusual connection to update-check.system detected',
+              severity: 'medium' as const,
+              type: 'warning' as const,
+              read: false,
+            },
+          ]});
+        }
+        setOffline(false);
+      } catch {
+        setOffline(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [dispatch]);
 
   return (
@@ -70,6 +97,12 @@ export function DashboardScreen({ navigation }: any) {
       <View style={styles.scoreContainer}>
         <SecurityScore score={securityScore} size="large" />
       </View>
+
+      {offline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>⚠️ Backend offline — showing last known / mock data</Text>
+        </View>
+      )}
 
       <View style={styles.scanContainer}>
         <ScanButton onPress={handleScan} scanning={state.isScanning} />
@@ -324,5 +357,18 @@ const styles = StyleSheet.create({
   lastScanText: {
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+  offlineBanner: {
+    backgroundColor: COLORS.warning + '20',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.warning,
+  },
+  offlineText: {
+    fontSize: 12,
+    color: COLORS.warning,
+    textAlign: 'center',
   },
 });

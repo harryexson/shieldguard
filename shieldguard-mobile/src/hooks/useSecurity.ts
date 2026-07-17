@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { AppInfo, ScanResult, SecurityAudit, SecurityCheck, NetworkConnection, DeviceInfo, Alert } from '../types';
 import { useSecurity } from '../context/SecurityContext';
+import { scanApi } from '../services/api';
 import { KNOWN_THREATS, getThreatByPackage, getDomainReputation, SUSPICIOUS_DOMAINS } from '../constants/threats';
 
 const MOCK_APPS: Omit<AppInfo, 'threatLevel' | 'threat'>[] = [
@@ -66,6 +67,28 @@ export function useAppScanner() {
       threatsFound: scannedApps.filter(a => a.threatLevel !== 'safe').length,
       apps: scannedApps,
     };
+
+    // Merge real backend results: submit the package names we know about.
+    // NOTE: Expo cannot enumerate truly-installed apps, so these package names
+    // are the app's own mock inventory — we still query the backend threat DB
+    // honestly and promote any matches.
+    try {
+      const backend = await scanApi.submitScan(
+        MOCK_APPS.map(a => ({ packageName: a.packageName }))
+      );
+      const backendThreats = backend.threats || [];
+      const byPackage = new Map(backendThreats.map(t => [t.packageName, t]));
+      result.apps = result.apps.map(app => {
+        const bt = byPackage.get(app.packageName);
+        if (bt) {
+          return { ...app, threatLevel: 'danger' as const, threat: { id: 'backend', name: bt.threat, type: 'surveillance' as const, severity: 'high' as const, description: bt.threat, packageNames: [bt.packageName], indicators: [], remediation: 'Review this app.' } };
+        }
+        return app;
+      });
+      result.threatsFound = result.apps.filter(a => a.threatLevel !== 'safe').length;
+    } catch {
+      // Backend unreachable — keep mock-only results.
+    }
 
     dispatch({ type: 'COMPLETE_SCAN', payload: result });
 

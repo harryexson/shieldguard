@@ -102,6 +102,7 @@ function authResult(headers) {
 function analyzeEmail({ from, subject, body, headers }) {
   const reasons = [];
   let score = 0;
+  let brandSpoofed = false;
   const subj = (subject || '').toLowerCase();
   const b = (body || '').toLowerCase();
   const mail = parseFromHeader(from);
@@ -111,6 +112,7 @@ function analyzeEmail({ from, subject, body, headers }) {
   BRANDS.forEach((brand) => {
     if (mail.display.includes(brand) && mail.domain && !mail.domain.includes(brand)) {
       score += 25;
+      brandSpoofed = true;
       reasons.push(`Display name implies "${brand}" but sender domain is "${mail.domain}"`);
     }
   });
@@ -150,8 +152,8 @@ function analyzeEmail({ from, subject, body, headers }) {
     }
   });
 
-  const phishing = score >= 35;
-  const severity = score >= 60 ? 'high' : score >= 35 ? 'medium' : 'low';
+  const phishing = score >= 35 || brandSpoofed;
+  const severity = score >= 60 ? 'high' : score >= 35 || brandSpoofed ? 'medium' : 'low';
   return { phishing, score: Math.min(100, score), severity, reasons, sender: mail };
 }
 

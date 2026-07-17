@@ -19,11 +19,11 @@ export const THREAT_LEVELS = {
   critical: '#FF4757',
 };
 
-// Points at the ShieldGuard backend (shieldguard-backend), NOT the office app.
-// The backend runs on port 4000 in this monorepo (the office app uses 3000).
-// For a physical device on the same network, replace with your machine's LAN IP,
-// e.g. 'http://192.168.1.20:4000/api'. For production use your hosted URL.
-export const API_BASE_URL = 'http://localhost:4000/api';
+// Points at the ShieldGuard backend. The backend runs on PORT 3000 locally.
+// Change this single value to point the app at a LAN IP or hosted URL, e.g.
+// 'http://192.168.1.20:3000/api' for a physical device on the same network,
+// or your production URL. No secrets are stored here.
+export const API_BASE_URL = 'http://localhost:3000/api';
 
 export const SCAN_INTERVALS = [
   { label: 'Every hour', value: 3600000 },
