@@ -13,6 +13,8 @@ const { analyzeSms, analyzeEmail } = require('./detection');
 const { loadThreatData } = require('./threatData');
 const { notFound, errorHandler, asyncHandler, requestLogger, requireApiKey } = require('./middleware');
 const { vaultStore, decoyStore, passwordStore, shareStore, incidentStore } = require('./vault');
+const { backupStore, deviceSecurityStore, aiReportStore } = require('./tier2');
+const { advise, summarizeIncident } = require('./ai');
 
 // ─── Load threat intelligence ───────────────────────────────────────
 const THREAT_DATA = loadThreatData();
@@ -537,6 +539,53 @@ function createApp() {
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const inc = incidentStore.addIncident(deviceId, { type: 'sos', location: req.body && req.body.location, battery: req.body && req.body.battery, note: req.body && req.body.message, metadata: { contacts: req.body && req.body.contacts } });
     res.status(201).json({ id: inc.id, dispatched: false, note: 'Recorded. The mobile app dispatches alerts via platform APIs (SMS/call/deeplinks).', createdAt: inc.createdAt });
+  });
+
+  // ─── Tier 2: Privacy / Security backend ──────────────────────────────
+  // The server never stores plaintext secrets or PII. Backups hold only
+  // client-encrypted ciphertext; AI reports hold only redacted summaries.
+
+  app.post('/api/backup/export', [body('ciphertext').isString().notEmpty()], validate, (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const r = backupStore.exportBackup(deviceId, { ciphertext: req.body.ciphertext, name: req.body.name });
+    res.status(201).json({ id: r.id, name: r.name, createdAt: r.createdAt });
+  });
+
+  app.get('/api/backup/latest', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const b = backupStore.getLatest(deviceId);
+    if (!b) return res.status(404).json({ error: 'No backup found' });
+    res.json(b);
+  });
+
+  app.post('/api/device/security-scan', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const { storedAt } = deviceSecurityStore.saveScan(deviceId, { posture: req.body && req.body.posture, details: req.body && req.body.details });
+    res.json({ ok: true, storedAt });
+  });
+
+  app.get('/api/device/security-scan', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    res.json(deviceSecurityStore.getScan(deviceId));
+  });
+
+  app.post('/api/ai/advise', asyncHandler(async (req, res) => {
+    const r = await advise((req.body && req.body.signals) || {});
+    res.json(r);
+  }));
+
+  app.post('/api/ai/summarize-incident', asyncHandler(async (req, res) => {
+    const r = await summarizeIncident((req.body && req.body.events) || [], deviceIdOf(req));
+    res.json(r);
+  }));
+
+  app.get('/api/ai/reports/admin', requireApiKey, (req, res) => {
+    const agg = aiReportStore.aggregate();
+    res.json(agg);
   });
 
   app.use(notFound);

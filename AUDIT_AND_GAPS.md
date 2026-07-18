@@ -201,8 +201,62 @@ deceptive claims were added.
 
 ---
 
+## 7. Tier 2 Implementation (2026-07-18)
+
+Built directly in repo per `SHIELDGUARD_BUILD_PROMPT.md` (features 11–17 + AI proxy). Design
+remains **zero-knowledge**: backups store only client-encrypted ciphertext; AI reports store only
+a redacted summary (risk level + short preview), never raw events or PII.
+
+### Backend (`src/tier2.js`, `src/ai.js`, routes in `src/index.js`)
+- `POST /api/backup/export` + `GET /api/backup/latest` — client-encrypted backup (ciphertext
+  only); one latest backup per device, isolated by `deviceId`.
+- `POST /api/device/security-scan` + `GET /api/device/security-scan` — persist/fetch latest
+  device security posture (used by Root/Wi-Fi/Permission monitors + Threat Dashboard).
+- `POST /api/ai/advise` — returns `{ provider, riskLevel, summary, recommendations }`. Rule-based
+  by default (signal scoring); if `OPENAI_API_KEY` is set, attempts a guarded LLM call (prompt built
+  from signal NAMES only, never values) and falls back to rule-based on any error. No PII persisted.
+- `POST /api/ai/summarize-incident` — summarizes events into a plain-language `report` + `riskLevel`;
+  also persists a redacted record (risk level + 120-char preview, deviceId masked) via `aiReportStore`.
+- `GET /api/ai/reports/admin` (`requireApiKey`) — `{ count, byRisk, recent }` (redacted only).
+- New JSON stores: `data/backups.json`, `data/deviceSecurity.json`, `data/aiReports.json`
+  (same load/save pattern as `family.js`/`vault.js`).
+- Added `tests/tier2.test.js` (4 tests). Full suite now **32 passing**, lint clean.
+
+### Mobile (`src/screens/*`)
+- `RootDetectionScreen` (11) — best-effort root/jailbreak indicators; honest about limits.
+- `WifiSecurityScreen` (12) — guarded `expo-network`; warns on open/weak networks; notes Expo
+  can't always read security type.
+- `PermissionMonitorScreen` (13) — guarded `getPermissionsAsync` for this app's camera/mic/
+  location/contacts/Bluetooth; guidance to review OS settings (can't see other apps on Expo).
+- `SecureCameraScreen` (14) — guarded `expo-camera` (with `expo-image-picker` fallback); encrypts
+  capture → vault `Hidden` folder; never the public gallery.
+- `MetadataRemoverScreen` (15) — guarded `expo-image-picker` + `expo-image-manipulator` re-encode
+  to drop EXIF/GPS.
+- `QrSecureShareScreen` (16) — `encryptJson` → `react-native-qrcode-svg`; scan-to-decrypt tab.
+- `BackupRestoreScreen` (17) — gathers vault items, `encryptJson`, `backupApi.export`; restore
+  decrypts + shows summary.
+- `AiAdvisorScreen` — `aiApi.advise`; shows `provider` (rule-based vs llm) + risk color.
+- `AiIncidentReportScreen` — `incidentsApi.list` → `aiApi.summarizeIncident`.
+- `api.ts` extended with `backupApi`, `deviceSecurityApi`, and `advise`/`summarizeIncident` on
+  `aiApi`. All 9 Stack screens registered. New deps added to `package.json`
+  (`expo-network`, `expo-camera`, `expo-image-manipulator`, `expo-contacts`, `react-native-qrcode-svg`).
+- `tsc --noEmit` reports only the pre-existing `@types/node`-missing warning; no real type errors.
+
+### Office (`src/app/admin/ai-reports`, `src/lib/api.ts`, `src/lib/rbac.ts`)
+- `/admin/ai-reports` — AI Reports: total count, risk-level breakdown cards, recent table, privacy
+  note. `officeApi.getAiReportsAdmin()` added + types. Sidebar entry gated `super_admin`.
+- `tsc --noEmit` clean.
+
+### Honest limitations carried forward
+- Root/jailbreak detection, Wi-Fi security-type, and other-app permission enumeration are
+  best-effort on Expo/stock hardware — UI says so.
+- AI features are rule-based offline by default; the optional LLM path requires `OPENAI_API_KEY`
+  and persists nothing about the user.
+
+---
+
 ## 5. Verification Performed
-- `shieldguard-backend`: `npm test` → 28/28 pass; `npm run lint` → clean; server boots and
+- `shieldguard-backend`: `npm test` → 32/32 pass; `npm run lint` → clean; server boots and
   `/api/health` returns `threats: 52000, hashes: 52000`.
 - `shieldguard-office`: `npx tsc --noEmit` → exit 0.
 - `shieldguard-mobile`: type-correct by inspection; full `tsc` blocked only by not-yet-installed

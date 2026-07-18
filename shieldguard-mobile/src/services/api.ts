@@ -162,6 +162,16 @@ export const aiApi = {
     const response = await api.get('/ai/patterns');
     return response.data;
   },
+
+  advise: async (signals: any): Promise<AiAdvice> => {
+    const response = await api.post('/ai/advise', { signals });
+    return response.data;
+  },
+
+  summarizeIncident: async (events: any[]): Promise<AiIncidentReport> => {
+    const response = await api.post('/ai/summarize-incident', { events });
+    return response.data;
+  },
 };
 
 // ─── Anonymization API ───────────────────────────────────────────────
@@ -419,6 +429,44 @@ export const passwordApi = {
   remove: (id: string): Promise<{ success: boolean }> =>
     api.delete(`/passwords/items/${id}`).then((r) => r.data),
 };
+
+// ─── Backup / Restore API (zero-knowledge: ciphertext only) ──────────────────
+export interface BackupRecord {
+  id: string;
+  name?: string;
+  ciphertext: string; // encrypted export blob, server-encrypted-free
+  createdAt: number;
+}
+
+export const backupApi = {
+  export: (ciphertext: string, name?: string): Promise<{ id: string; createdAt: number }> =>
+    api.post('/backup/export', { ciphertext, name }).then((r) => r.data),
+  getLatest: (): Promise<BackupRecord | { error: string }> =>
+    api.get('/backup/latest').then((r) => r.data),
+};
+
+// ─── Device security posture / scan API ───────────────────────────────────────
+export const deviceSecurityApi = {
+  postScan: (posture: any, details?: any): Promise<{ id?: string; saved: boolean }> =>
+    api.post('/device/security-scan', { posture, details }).then((r) => r.data),
+  getScan: (): Promise<any> =>
+    api.get('/device/security-scan').then((r) => r.data),
+};
+
+// ─── AI advisor / incident report API ─────────────────────────────────────────
+export interface AiAdvice {
+  provider: 'rule-based' | 'llm';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  summary: string;
+  recommendations: string[];
+}
+
+export interface AiIncidentReport {
+  report: string;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  generatedAt: number;
+  provider: 'rule-based' | 'llm';
+}
 
 // ─── Secure share API ────────────────────────────────────────────────────────
 export interface ShareMeta {

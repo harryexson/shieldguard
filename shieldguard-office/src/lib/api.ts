@@ -103,6 +103,25 @@ export interface ThreatDashboardResponse {
   checkedAt: string;
 }
 
+export interface AiReport {
+  id: string;
+  riskLevel: string;
+  generatedAt: number;
+  preview: string;
+  deviceId: string;
+}
+
+export interface AiReportsAdminResponse {
+  count: number;
+  byRisk: {
+    low: number;
+    medium: number;
+    high: number;
+    critical: number;
+  };
+  recent: AiReport[];
+}
+
 export const officeApi = {
   health: () => api.get<{ status: string }>('/health'),
   stats: () => api.get<Stats>('/stats'),
@@ -117,4 +136,5 @@ export const officeApi = {
   getIncidentsAdmin: () => api.get<IncidentsAdminResponse>('/incidents/admin'),
   scoreThreatDashboard: (posture: ThreatPosture) =>
     api.post<ThreatDashboardResponse>('/threat-dashboard', { posture }),
+  getAiReportsAdmin: () => api.get<AiReportsAdminResponse>('/ai/reports/admin'),
 };

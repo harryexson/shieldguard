@@ -95,6 +95,58 @@ ShieldGuard is engineered specifically to counter these advanced persistent surv
 - **AI Analysis API** - Heuristic threat scoring with 10 behavioral patterns, risk factor detection, and recommendation engine
 - **Anonymization API** - Device ID masking, MAC rotation, metadata stripping, browser fingerprint randomization, tracker blocking
 
+## Privacy & Security Feature Tiers
+
+ShieldGuard is built in tiers. **Tier 1** and **Tier 2** are implemented in this repository
+(as of 2026-07-18). All vault/backup features are **zero-knowledge**: the backend stores only
+client-encrypted ciphertext + non-sensitive metadata and never sees keys or plaintext. A full,
+honest accounting is in [AUDIT_AND_GAPS.md](./AUDIT_AND_GAPS.md).
+
+### Tier 1 — Encrypted Vault & Emergency Privacy (implemented)
+- **Encrypted Secure Vault** — folders (Personal/Finance/Medical/Family/Legal/Business/Passwords/Emergency/Hidden); photos, docs, notes, passwords, IDs encrypted on-device (AES-256, PIN-derived key).
+- **Secure Notes** — encrypted notes.
+- **Password Manager** — generates strong passwords; stores encrypted entries with strength badges.
+- **Secure File Sharing** — one-time / TTL-bounded share links (server relays ciphertext only).
+- **Panic Lock** — one-tap lock + optional timed key-destruction.
+- **Duress PIN** — a second PIN silently opens a decoy vault and logs an incident.
+- **Decoy Vault** — separate encrypted store with ordinary-looking content.
+- **Threat Dashboard** — scores a device's security posture (root, screen lock, VPN, biometrics, OS updates, app integrity) and lists fixes.
+- **Emergency SOS** — records an incident and offers platform deeplinks (`tel:`/SMS) to notify contacts. Actual message sending uses platform APIs (best-effort).
+- **App Lock** — PIN/biometric gate on the vault.
+
+### Tier 2 — Device Hardening & AI (implemented)
+- **Root/Jailbreak Detection** — best-effort indicators (Magisk/Frida/Xposed, `su` binaries, `__DEV__`); honest about limits.
+- **Wi-Fi Security Scanner** — warns on open/weak networks and potential MITM (security type is not always readable on Expo).
+- **Privacy Permission Monitor** — shows this app's camera/mic/location/contacts/Bluetooth grants + OS review guidance.
+- **Secure Camera** — captures go straight into the encrypted vault, never the public gallery.
+- **Metadata Remover** — re-encodes images to strip EXIF/GPS before sharing.
+- **QR Secure Sharing** — encrypts a small secret into a scannable QR (recipient needs the same PIN).
+- **Backup & Restore** — client-side encrypted cloud backup (ciphertext only).
+- **AI Security Advisor** — turns device signals into a risk level + recommendations (rule-based by default; optional LLM).
+- **AI Incident Reports** — summarizes security events (panic/duress/SOS) into a plain-language brief + risk level. The server stores only a redacted summary.
+
+### Tier 1 & Tier 2 API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/vault/items | Store encrypted vault item (ciphertext + metadata) |
+| GET | /api/vault/items | List vault items (metadata only, no ciphertext) |
+| GET / PUT / DELETE | /api/vault/items/:id | Fetch / update / delete one vault item |
+| POST / GET / GET / DELETE | /api/vault/decoy/items | Decoy vault (same shape, isolated store) |
+| POST / GET / GET / DELETE | /api/passwords/items | Encrypted password-manager entries |
+| POST | /api/share | Create one-time/TTL secure share (returns token) |
+| GET | /api/share/:token | Fetch shared ciphertext (404 when used up/expired) |
+| POST / GET | /api/incidents | Create / list panic·duress·sos incidents |
+| POST | /api/incidents/:id/resolve | Resolve an incident |
+| GET | /api/incidents/admin | Aggregated incident counts (`requireApiKey`) |
+| POST | /api/threat-dashboard | Score a device posture → score / riskLevel / recommendations |
+| POST | /api/emergency/sos | Record an SOS incident (server records only) |
+| POST | /api/backup/export | Store latest client-encrypted backup (ciphertext) |
+| GET | /api/backup/latest | Fetch latest backup (ciphertext) |
+| POST / GET | /api/device/security-scan | Persist / fetch latest device security posture |
+| POST | /api/ai/advise | Security recommendations from signals (rule-based or optional LLM) |
+| POST | /api/ai/summarize-incident | Summarize events into a report + risk level |
+| GET | /api/ai/reports/admin | Aggregated AI-report stats (`requireApiKey`) |
+
 ## Running the Application
 
 ### 1. Start the Backend API Server
@@ -154,7 +206,7 @@ npm run ios
 
 ### Backend
 - Node.js with Express
-- TypeScript
+- JavaScript (CommonJS — `src/index.js` is the canonical entrypoint, no build step)
 - RESTful API
 
 ## API Endpoints
@@ -294,6 +346,14 @@ Key points:
   from only ~20 hand-written entries.
 - The mobile app's **Device Extraction PIN lock** and **Social Media Encryption Vault**
   are now real client-side implementations (PIN-hashed, AES-encrypted at rest).
+- **Tier 1** (encrypted secure vault, panic/duress/decoy, secure notes, password manager,
+  secure file sharing, threat dashboard, emergency SOS, app lock) and **Tier 2** (root/jailbreak
+  detection, Wi-Fi scanner, permission monitor, secure camera, metadata remover, QR secure
+  sharing, encrypted backup & restore, AI security advisor, AI incident reports) are implemented
+  across the mobile app, backend (`src/vault.js`, `src/tier2.js`, `src/ai.js`), and office admin
+  pages. See the **Privacy & Security Feature Tiers** section above.
+- The backend test suite is **32 passing** (detection, hash matching, vault/decoy/password/share,
+  incidents, threat-dashboard, SOS, backup, device-scan, AI advise/summarize) and lint is clean.
 - Some advertised capabilities are **physically impossible on stock phone hardware**
   (true IMSI-catcher/Stingray detection, native GPS spoofing, drone/RF blocking, defeating
   physical forensic extraction). These are documented honestly in-app and are not faked.

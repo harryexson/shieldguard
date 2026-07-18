@@ -32,6 +32,15 @@ import { PasswordManagerScreen } from './src/screens/PasswordManagerScreen';
 import { SecureShareScreen } from './src/screens/SecureShareScreen';
 import { ThreatDashboardScreen } from './src/screens/ThreatDashboardScreen';
 import { EmergencySOSScreen } from './src/screens/EmergencySOSScreen';
+import { RootDetectionScreen } from './src/screens/RootDetectionScreen';
+import { WifiSecurityScreen } from './src/screens/WifiSecurityScreen';
+import { PermissionMonitorScreen } from './src/screens/PermissionMonitorScreen';
+import { SecureCameraScreen } from './src/screens/SecureCameraScreen';
+import { MetadataRemoverScreen } from './src/screens/MetadataRemoverScreen';
+import { QrSecureShareScreen } from './src/screens/QrSecureShareScreen';
+import { BackupRestoreScreen } from './src/screens/BackupRestoreScreen';
+import { AiAdvisorScreen } from './src/screens/AiAdvisorScreen';
+import { AiIncidentReportScreen } from './src/screens/AiIncidentReportScreen';
 import { COLORS } from './src/constants';
 
 const Tab = createBottomTabNavigator();
@@ -146,6 +155,15 @@ export default function App() {
                 <Stack.Screen name="SecureShare" component={SecureShareScreen} />
                 <Stack.Screen name="ThreatDashboard" component={ThreatDashboardScreen} />
                 <Stack.Screen name="EmergencySOS" component={EmergencySOSScreen} />
+                <Stack.Screen name="RootDetection" component={RootDetectionScreen} />
+                <Stack.Screen name="WifiSecurity" component={WifiSecurityScreen} />
+                <Stack.Screen name="PermissionMonitor" component={PermissionMonitorScreen} />
+                <Stack.Screen name="SecureCamera" component={SecureCameraScreen} />
+                <Stack.Screen name="MetadataRemover" component={MetadataRemoverScreen} />
+                <Stack.Screen name="QrSecureShare" component={QrSecureShareScreen} />
+                <Stack.Screen name="BackupRestore" component={BackupRestoreScreen} />
+                <Stack.Screen name="AiAdvisor" component={AiAdvisorScreen} />
+                <Stack.Screen name="AiIncidentReport" component={AiIncidentReportScreen} />
               </Stack.Navigator>
             </NavigationContainer>
           </PanicProvider>

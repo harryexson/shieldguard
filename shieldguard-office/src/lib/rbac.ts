@@ -138,6 +138,7 @@ export const SIDEBAR_ITEMS: Record<string, { label: string; icon: string; href: 
     { label: 'Families', icon: '👨‍👩‍👧‍👦', href: '/admin/families', roles: ['super_admin'] },
     { label: 'Incident Logs', icon: '🚨', href: '/admin/incidents', roles: ['super_admin'] },
     { label: 'Threat Dashboard', icon: '🛡️', href: '/admin/threat-dashboard', roles: ['super_admin'] },
+    { label: 'AI Reports', icon: '🤖', href: '/admin/ai-reports', roles: ['super_admin'] },
   ],
 };
 
