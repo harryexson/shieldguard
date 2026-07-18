@@ -43,9 +43,22 @@ function setSubscription(deviceId, tier, plan) {
   return db[deviceId];
 }
 
+// If the device belongs to a Family plan (as owner or active member) it inherits
+// the family tier, which includes every premium feature across up to deviceLimit devices.
 function getEntitlements(deviceId) {
-  const sub = getSubscription(deviceId);
   const { featuresForTier } = require('./features');
+  const { getGroupForDevice, publicView } = require('./family');
+  const group = getGroupForDevice(deviceId);
+  if (group) {
+    return {
+      tier: 'family',
+      plan: 'family',
+      status: 'active',
+      features: featuresForTier('family'),
+      family: publicView(group, deviceId),
+    };
+  }
+  const sub = getSubscription(deviceId);
   return {
     tier: sub.tier,
     plan: sub.plan,

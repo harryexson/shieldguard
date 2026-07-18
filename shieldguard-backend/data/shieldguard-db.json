@@ -2,8 +2,8 @@
   "scans": [],
   "alerts": [
     {
-      "id": "171e7f9a-bf91-4876-9a7b-2d557bd5fd4e",
-      "timestamp": 1784313998695,
+      "id": "bebeb183-33a5-4272-9f9e-da4e95c3b237",
+      "timestamp": 1784340532865,
       "title": "Threats Detected During Scan",
       "message": "Found 1 threat(s) across 2 scanned application(s)",
       "severity": "high",
@@ -11,25 +11,49 @@
       "read": false
     },
     {
-      "id": "47ff062b-ea1a-46e0-8140-efa008269366",
-      "timestamp": 1784310398778,
+      "id": "4630ed6c-fb00-49d9-bd46-33eb1bbe7846",
+      "timestamp": 1784340139091,
+      "title": "Threats Detected During Scan",
+      "message": "Found 1 threat(s) across 2 scanned application(s)",
+      "severity": "high",
+      "type": "threat",
+      "read": false
+    },
+    {
+      "id": "24a5bebe-243d-43fd-8fff-9859e60f0c07",
+      "timestamp": 1784340093083,
+      "title": "Threats Detected During Scan",
+      "message": "Found 1 threat(s) across 2 scanned application(s)",
+      "severity": "high",
+      "type": "threat",
+      "read": false
+    },
+    {
+      "id": "e212de37-16ae-4b8a-b043-07535b085a5c",
+      "timestamp": 1784340078328,
+      "title": "Threats Detected During Scan",
+      "message": "Found 1 threat(s) across 2 scanned application(s)",
+      "severity": "high",
+      "type": "threat",
+      "read": false
+    },
+    {
+      "id": "718920b9-6dee-4306-8a32-1e3a3f335f42",
+      "timestamp": 1784340049490,
+      "title": "Threats Detected During Scan",
+      "message": "Found 1 threat(s) across 2 scanned application(s)",
+      "severity": "high",
+      "type": "threat",
+      "read": false
+    },
+    {
+      "id": "817b66fc-b7c6-4109-bbff-ec87e5474fab",
+      "timestamp": 1784336449499,
       "title": "New Threat Detected",
       "message": "A new spyware variant has been identified in our threat database",
       "severity": "high",
       "type": "threat",
       "read": false
-    }
-  ],
-  "settings": {
-    "autoScanEnabled": false,
-    "scanInterval": 86400000,
-    "realTimeMonitoring": true,
-    "notificationsEnabled": true,
-    "threatAlertsEnabled": true,
-    "networkMonitoringEnabled": true,
-    "backgroundScanning": false
-  }
-}: false
     }
   ],
   "settings": {

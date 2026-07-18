@@ -72,16 +72,23 @@ const FEATURES = [
     description: 'Rotate advertising and device identifiers to reduce cross-app tracking.',
     deliveredBy: 'mobile',
   },
-  {
+    {
     id: 'priority_support',
     name: 'Priority Support',
     tier: 'premium',
     description: 'Faster response times from the ShieldGuard team.',
     deliveredBy: 'human',
   },
+  {
+    id: 'family_sharing',
+    name: 'Family Sharing',
+    tier: 'family',
+    description: 'Cover up to 5 devices on one plan — invite family members by email/code and protect their phones too.',
+    deliveredBy: 'mobile+backend',
+  },
 ];
 
-const TIER_RANK = { free: 0, standard: 1, premium: 2 };
+const TIER_RANK = { free: 0, standard: 1, premium: 2, family: 3 };
 
 function tierRank(tier) {
   return TIER_RANK[tier] != null ? TIER_RANK[tier] : 0;

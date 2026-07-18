@@ -37,6 +37,14 @@ function getPlans() {
       interval: 'month',
       priceId: process.env.STRIPE_PRICE_PREMIUM || null,
     },
+    {
+      id: 'family',
+      name: 'Family',
+      price: 19.99,
+      interval: 'month',
+      deviceLimit: 5,
+      priceId: process.env.STRIPE_PRICE_FAMILY || null,
+    },
   ];
 }
 
@@ -105,10 +113,14 @@ function setupBilling(app) {
         return res.status(400).json({ error: 'Invalid or expired checkout session' });
       }
     }
-    if (!tier || !['free', 'standard', 'premium'].includes(tier)) {
+    if (!tier || !['free', 'standard', 'premium', 'family'].includes(tier)) {
       return res.status(400).json({ error: 'A valid plan is required' });
     }
     setSubscription(deviceId, tier, tier);
+    if (tier === 'family') {
+      const { createFamily } = require('./family');
+      createFamily(deviceId, (req.body && req.body.familyName) || 'My Family');
+    }
     const { getEntitlements } = require('./subscriptions');
     res.json(getEntitlements(deviceId));
   });
@@ -148,7 +160,13 @@ function registerWebhook(app) {
     if (event && event.type === 'checkout.session.completed') {
       const plan = event.data?.object?.metadata?.plan;
       const deviceId = event.data?.object?.client_reference_id;
-      if (deviceId && plan) setSubscription(deviceId, plan, plan);
+      if (deviceId && plan) {
+        setSubscription(deviceId, plan, plan);
+        if (plan === 'family') {
+          const { createFamily } = require('./family');
+          createFamily(deviceId, 'My Family');
+        }
+      }
       console.log(`[billing] Checkout completed for plan: ${plan} device: ${deviceId || '(none)'}`);
     }
       res.json({ received: true });

@@ -256,6 +256,35 @@ export interface CheckoutResult {
   sessionId: string;
 }
 
+// ─── Family plan types ────────────────────────────────────────────────
+export type FamilyRole = 'owner' | 'member';
+export type FamilyMemberStatus = 'pending' | 'active';
+
+export interface FamilyMember {
+  name?: string;
+  email?: string;
+  phone?: string;
+  status: FamilyMemberStatus;
+  isYou: boolean;
+  isOwner: false;
+}
+
+export interface FamilyView {
+  id: string;
+  name: string;
+  role: FamilyRole;
+  deviceLimit: number;
+  deviceCount: number;
+  inviteCode?: string;
+  members: FamilyMember[];
+}
+
+export interface InvitePayload {
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
 export const subscriptionApi = {
   getFeatures: async (): Promise<FeatureDef[]> => {
     const response = await api.get('/features');
@@ -281,6 +310,48 @@ export const subscriptionApi = {
   // Fallback activation confirmation (the webhook normally activates the sub).
   confirm: async (sessionId: string): Promise<Entitlements> => {
     const response = await api.post('/billing/confirm', { sessionId });
+    return response.data;
+  },
+};
+
+// ─── Family API ───────────────────────────────────────────────────────
+export const familyApi = {
+  // Creates a family group for the given device. Idempotent: returns the
+  // existing group if the device is already an owner or active member.
+  create: async (deviceId: string, name?: string): Promise<FamilyView> => {
+    const response = await api.post('/family/create', { deviceId, name });
+    return response.data;
+  },
+
+  // Returns the device's family view, or null when not in a family.
+  get: async (deviceId: string): Promise<FamilyView | null> => {
+    const response = await api.get('/family', { params: { deviceId } });
+    return response.data;
+  },
+
+  // Owner-only: invites a member by email and/or phone (+ optional name).
+  invite: async (ownerDeviceId: string, payload: InvitePayload): Promise<FamilyView> => {
+    const response = await api.post('/family/invite', { deviceId: ownerDeviceId, ...payload });
+    return response.data;
+  },
+
+  // Joins a family using an invite code (+ optional display name).
+  join: async (deviceId: string, inviteCode: string, name?: string): Promise<FamilyView> => {
+    const response = await api.post('/family/join', { deviceId, inviteCode, name });
+    return response.data;
+  },
+
+  // Owner-only: removes a member from the family.
+  removeMember: async (ownerDeviceId: string, memberDeviceId: string): Promise<FamilyView> => {
+    const response = await api.delete(`/family/member/${memberDeviceId}`, {
+      params: { deviceId: ownerDeviceId },
+    });
+    return response.data;
+  },
+
+  // Member-only: leaves the family the device belongs to.
+  leave: async (deviceId: string): Promise<{ success: true }> => {
+    const response = await api.post('/family/leave', { deviceId });
     return response.data;
   },
 };

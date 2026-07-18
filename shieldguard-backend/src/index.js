@@ -338,6 +338,71 @@ function createApp() {
     { id: '7', domain: 'branch.io', category: 'Deep Linking', blocked: true },
   ]));
 
+  // ─── Family plans ──────────────────────────────────────────────
+  const {
+    createFamily, getGroupForDevice, inviteMember, joinFamily, removeMember, leaveFamily, listAllGroups, publicView,
+  } = require('./family');
+
+  app.post('/api/family/create', requireApiKey, (req, res) => {
+    const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const group = createFamily(deviceId, req.body && req.body.name);
+    res.json({ ...publicView(group, deviceId), inviteCode: group.inviteCode });
+  });
+
+  app.get('/api/family', (req, res) => {
+    const deviceId = req.query.deviceId;
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const group = getGroupForDevice(deviceId);
+    res.json(group ? publicView(group, deviceId) : null);
+  });
+
+  app.post('/api/family/invite', requireApiKey, (req, res) => {
+    const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
+    const group = getGroupForDevice(deviceId);
+    if (!group || group.ownerDeviceId !== deviceId) return res.status(403).json({ error: 'Only the family owner can invite' });
+    const updated = inviteMember(group.id, { name: req.body && req.body.name, email: req.body && req.body.email, phone: req.body && req.body.phone });
+    res.json({ ...publicView(updated, deviceId), inviteCode: updated.inviteCode });
+  });
+
+  app.post('/api/family/join', requireApiKey, (req, res) => {
+    const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
+    const code = req.body && req.body.inviteCode;
+    if (!deviceId || !code) return res.status(400).json({ error: 'deviceId and inviteCode are required' });
+    try {
+      const group = joinFamily(code, deviceId, req.body && req.body.name);
+      res.json(publicView(group, deviceId));
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message });
+    }
+  });
+
+  app.delete('/api/family/member/:deviceId', requireApiKey, (req, res) => {
+    const owner = req.query.deviceId || (req.body && req.body.deviceId);
+    const group = owner && getGroupForDevice(owner);
+    if (!group || group.ownerDeviceId !== owner) return res.status(403).json({ error: 'Only the family owner can remove members' });
+    const ok = removeMember(group.id, req.params.deviceId);
+    ok ? res.json(publicView(group, owner)) : res.status(404).json({ error: 'Member not found' });
+  });
+
+  app.post('/api/family/leave', requireApiKey, (req, res) => {
+    const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
+    const group = getGroupForDevice(deviceId);
+    if (!group || group.ownerDeviceId === deviceId) return res.status(400).json({ error: 'The owner cannot leave; transfer or delete the family instead' });
+    leaveFamily(group.id, deviceId);
+    res.json({ success: true });
+  });
+
+  app.get('/api/family/admin', requireApiKey, (req, res) => {
+    const groups = listAllGroups().map((g) => ({
+      id: g.id, name: g.name, ownerDeviceId: g.ownerDeviceId,
+      deviceCount: 1 + g.members.filter((m) => m.status === 'active').length,
+      deviceLimit: g.deviceLimit, pendingInvites: g.members.filter((m) => m.status === 'pending').length,
+      createdAt: g.createdAt,
+    }));
+    res.json({ count: groups.length, groups });
+  });
+
   app.use(notFound);
   app.use(errorHandler);
 

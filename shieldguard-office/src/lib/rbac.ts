@@ -135,6 +135,7 @@ export const SIDEBAR_ITEMS: Record<string, { label: string; icon: string; href: 
   admin: [
     { label: 'User Admin', icon: '⚙️', href: '/admin/users', roles: ['super_admin'] },
     { label: 'Roles & Permissions', icon: '🔐', href: '/admin/roles', roles: ['super_admin'] },
+    { label: 'Families', icon: '👨‍👩‍👧‍👦', href: '/admin/families', roles: ['super_admin'] },
   ],
 };
 

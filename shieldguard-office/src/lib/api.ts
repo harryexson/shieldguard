@@ -1,5 +1,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
+
 class ApiClient {
   private baseUrl: string;
 
@@ -8,9 +10,14 @@ class ApiClient {
   }
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
+      ...(options?.headers as Record<string, string> | undefined),
+    };
     const res = await fetch(`${this.baseUrl}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
       ...options,
+      headers,
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
@@ -43,6 +50,21 @@ export interface ThreatFeedItem {
   status: string;
 }
 
+export interface FamilyGroup {
+  id: string;
+  name: string;
+  ownerDeviceId: string;
+  deviceCount: number;
+  deviceLimit: number;
+  pendingInvites: number;
+  createdAt: string;
+}
+
+export interface FamilyAdminResponse {
+  count: number;
+  groups: FamilyGroup[];
+}
+
 export const officeApi = {
   health: () => api.get<{ status: string }>('/health'),
   stats: () => api.get<Stats>('/stats'),
@@ -53,4 +75,5 @@ export const officeApi = {
   markAlertRead: (id: string) => api.patch(`/alerts/${id}/read`),
   me: (deviceId?: string) => api.get<{ tier: string; plan: string; features: string[] }>(`/me${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`),
   billingPlans: () => api.get<any[]>('/billing/plans'),
+  getFamilies: () => api.get<FamilyAdminResponse>('/family/admin'),
 };

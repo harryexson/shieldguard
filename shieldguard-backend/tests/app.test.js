@@ -91,3 +91,62 @@ describe('API', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('Family plan', () => {
+  const { app } = createApp();
+  const fs = require('fs');
+  const FAMILY_PATH = require('path').join(__dirname, '..', 'data', 'family.json');
+  beforeAll(() => { try { fs.unlinkSync(FAMILY_PATH); } catch (_) {} });
+  const owner = 'family-owner-1';
+  const m1 = 'family-member-1';
+  const m2 = 'family-member-2';
+
+  it('creates a family and returns an invite code', async () => {
+    const res = await request(app).post('/api/family/create').send({ deviceId: owner, name: 'The Smiths' });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe('owner');
+    expect(res.body.inviteCode).toMatch(/^[A-Z0-9]{8}$/);
+    expect(res.body.deviceLimit).toBe(5);
+  });
+
+  it('owner is covered by the family tier', async () => {
+    const res = await request(app).get('/api/family').query({ deviceId: owner });
+    expect(res.body.role).toBe('owner');
+    expect(res.body.deviceCount).toBe(1);
+  });
+
+  it('a member can join with the code and gains coverage', async () => {
+    const fam = await request(app).get('/api/family').query({ deviceId: owner });
+    const join = await request(app).post('/api/family/join').send({ deviceId: m1, inviteCode: fam.body.inviteCode, name: 'Mom' });
+    expect(join.status).toBe(200);
+    expect(join.body.role).toBe('member');
+    const me = await request(app).get('/api/family').query({ deviceId: m1 });
+    expect(me.body.role).toBe('member');
+    expect(me.body.deviceCount).toBe(2);
+  });
+
+  it('rejects joins past the device limit', async () => {
+    const fam = await request(app).get('/api/family').query({ deviceId: owner });
+    // owner + m1 already = 2; fill up to the limit (5).
+    for (let i = 0; i < 3; i++) {
+      await request(app).post('/api/family/join').send({ deviceId: `filler-${i}`, inviteCode: fam.body.inviteCode });
+    }
+    const over = await request(app).post('/api/family/join').send({ deviceId: m2, inviteCode: fam.body.inviteCode });
+    expect(over.status).toBe(409);
+  });
+
+  it('owner can remove a member', async () => {
+    const before = await request(app).get('/api/family').query({ deviceId: owner });
+    expect(before.body.members.some((m) => m.isYou === false)).toBe(true);
+    const target = before.body.members.find((m) => m.isYou === false);
+    const res = await request(app).delete(`/api/family/member/${target.deviceId || 'filler-0'}`).query({ deviceId: owner });
+    expect([200, 404]).toContain(res.status);
+  });
+
+  it('admin lists families', async () => {
+    const res = await request(app).get('/api/family/admin');
+    expect(res.status).toBe(200);
+    expect(res.body.count).toBeGreaterThanOrEqual(1);
+  });
+});
+

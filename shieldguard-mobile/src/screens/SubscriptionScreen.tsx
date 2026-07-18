@@ -4,10 +4,10 @@ import { COLORS } from '../constants';
 import { useSubscription } from '../context/SubscriptionContext';
 import { PlanDef } from '../services/api';
 
-const TIER_LABEL: Record<string, string> = { free: 'Free', standard: 'Standard', premium: 'Premium' };
+const TIER_LABEL: Record<string, string> = { free: 'Free', standard: 'Standard', premium: 'Premium', family: 'Family' };
 
 export function SubscriptionScreen() {
-  const { tier, entitlements, plans, subscribe, loading } = useSubscription();
+  const { tier, entitlements, plans, subscribe, subscribeFamily, loading } = useSubscription();
 
   if (loading) {
     return (
@@ -41,8 +41,16 @@ export function SubscriptionScreen() {
       <Text style={styles.sectionTitle}>Plans</Text>
       {plans.map((plan: PlanDef) => {
         const isCurrent = plan.id === tier;
+        const isFamily = plan.id === 'family';
+        const handlePress = () => {
+          if (isFamily) {
+            subscribeFamily('family');
+          } else {
+            subscribe(plan.id as any);
+          }
+        };
         return (
-          <View key={plan.id} style={[styles.planCard, plan.highlighted && styles.planCardHi]}>
+          <View key={plan.id} style={[styles.planCard, plan.highlighted && styles.planCardHi, isFamily && styles.planCardFamily]}>
             <View style={styles.planHead}>
               <Text style={styles.planName}>{plan.name}</Text>
               <Text style={styles.planPrice}>
@@ -50,6 +58,11 @@ export function SubscriptionScreen() {
                 <Text style={styles.planPer}>/mo</Text>
               </Text>
             </View>
+            {isFamily && (
+              <View style={styles.deviceBadge}>
+                <Text style={styles.deviceBadgeText}>🛡️ Covers up to 5 devices</Text>
+              </View>
+            )}
             <View style={styles.planFeatures}>
               {plan.features.map((f) => (
                 <Text key={f} style={styles.planFeature}>• {f}</Text>
@@ -58,7 +71,7 @@ export function SubscriptionScreen() {
             <TouchableOpacity
               style={[styles.planBtn, isCurrent && styles.planBtnDisabled]}
               disabled={isCurrent}
-              onPress={() => subscribe(plan.id as any)}
+              onPress={handlePress}
             >
               <Text style={styles.planBtnText}>
                 {isCurrent ? 'Current plan' : `Choose ${plan.name}`}
@@ -88,6 +101,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   planCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
   planCardHi: { borderColor: COLORS.safe, borderWidth: 2 },
+  planCardFamily: { borderColor: COLORS.accent, borderWidth: 2 },
+  deviceBadge: { backgroundColor: COLORS.accent + '18', borderRadius: 10, paddingVertical: 6, paddingHorizontal: 10, alignSelf: 'flex-start', marginBottom: 10 },
+  deviceBadgeText: { fontSize: 12, color: COLORS.safe, fontWeight: '600' },
   planHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   planName: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
   planPrice: { fontSize: 20, fontWeight: 'bold', color: COLORS.safe },

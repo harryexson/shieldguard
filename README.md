@@ -266,6 +266,23 @@ Opens at http://localhost:3001 (configured to avoid conflict with backend API on
 
 ---
 
+## Family Plan
+
+A **Family** subscription (**$19.99/month, covers up to 5 devices**) lets one owner protect
+their household. It is a server-side plan tier (`family`) that grants every premium
+feature to the owner **and** to members who join.
+
+Flow:
+1. User buys the Family plan in the mobile app (`/billing/checkout`) → backend creates the family group on checkout confirm.
+2. Owner opens **Family** (new tab) → sees an **invite code** and can **invite members by name + email/phone** (`/api/family/invite`).
+3. A family member installs the app, enters the **invite code** (`/api/family/join`) → their device gains Family-tier coverage (up to the 5-device limit; further joins return `409`).
+4. Owner can **remove** a member; a member can **leave**. The office admin **Families** page (`/admin/families`) lists all family subscriptions (name, devices used/limit, pending invites).
+
+Entitlements are derived from family membership: `GET /api/me?deviceId=` returns
+`tier: "family"` + a `family` view for any covered device. See `AUDIT_AND_GAPS.md` for the full data model.
+
+---
+
 ## Current Status & Known Limitations
 
 This repository was re-audited on 2026-07-17. A full, honest accounting of what is

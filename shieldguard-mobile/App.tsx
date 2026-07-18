@@ -20,6 +20,7 @@ import { EmailSecurityScreen } from './src/screens/EmailSecurityScreen';
 import { DeviceExtractionScreen } from './src/screens/DeviceExtractionScreen';
 import { SocialVaultScreen } from './src/screens/SocialVaultScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
+import { FamilyScreen } from './src/screens/FamilyScreen';
 import { COLORS } from './src/constants';
 
 const Tab = createBottomTabNavigator();
@@ -84,6 +85,13 @@ function MainTabs() {
           tabBarIcon: ({ focused }) => <TabIcon icon="⚙️" focused={focused} />,
         }}
       />
+      <Tab.Screen
+        name="Family"
+        component={FamilyScreen}
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon icon="👨‍👩‍👧‍👦" focused={focused} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -103,6 +111,7 @@ export default function App() {
             <Stack.Screen name="DeviceExtraction" component={DeviceExtractionScreen} />
             <Stack.Screen name="SocialVault" component={SocialVaultScreen} />
             <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+            <Stack.Screen name="Family" component={FamilyScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SubscriptionProvider>
