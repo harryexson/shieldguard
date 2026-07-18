@@ -97,7 +97,7 @@ ShieldGuard is engineered specifically to counter these advanced persistent surv
 
 ## Privacy & Security Feature Tiers
 
-ShieldGuard is built in tiers. **Tier 1** and **Tier 2** are implemented in this repository
+ShieldGuard is built in tiers. **Tier 1**, **Tier 2**, and **Tier 3** are implemented in this repository
 (as of 2026-07-18). All vault/backup features are **zero-knowledge**: the backend stores only
 client-encrypted ciphertext + non-sensitive metadata and never sees keys or plaintext. A full,
 honest accounting is in [AUDIT_AND_GAPS.md](./AUDIT_AND_GAPS.md).
