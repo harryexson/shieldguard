@@ -65,6 +65,44 @@ export interface FamilyAdminResponse {
   groups: FamilyGroup[];
 }
 
+export type IncidentType = 'panic' | 'duress' | 'sos';
+
+export interface RecentIncident {
+  id: string;
+  deviceId: string;
+  type: IncidentType;
+  status: string;
+  createdAt: string;
+  note?: string;
+}
+
+export interface IncidentsAdminResponse {
+  count: number;
+  byType: {
+    panic: number;
+    duress: number;
+    sos: number;
+  };
+  recent: RecentIncident[];
+}
+
+export interface ThreatPosture {
+  rooted: boolean;
+  developerMode: boolean;
+  vpnActive: boolean;
+  screenLock: boolean;
+  biometrics: boolean;
+  osUpToDate: boolean;
+  appIntegrity: boolean;
+}
+
+export interface ThreatDashboardResponse {
+  score: number;
+  riskLevel: string;
+  recommendations: string[];
+  checkedAt: string;
+}
+
 export const officeApi = {
   health: () => api.get<{ status: string }>('/health'),
   stats: () => api.get<Stats>('/stats'),
@@ -76,4 +114,7 @@ export const officeApi = {
   me: (deviceId?: string) => api.get<{ tier: string; plan: string; features: string[] }>(`/me${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`),
   billingPlans: () => api.get<any[]>('/billing/plans'),
   getFamilies: () => api.get<FamilyAdminResponse>('/family/admin'),
+  getIncidentsAdmin: () => api.get<IncidentsAdminResponse>('/incidents/admin'),
+  scoreThreatDashboard: (posture: ThreatPosture) =>
+    api.post<ThreatDashboardResponse>('/threat-dashboard', { posture }),
 };

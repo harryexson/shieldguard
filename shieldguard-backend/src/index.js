@@ -12,6 +12,7 @@ const { getEntitlements } = require('./subscriptions');
 const { analyzeSms, analyzeEmail } = require('./detection');
 const { loadThreatData } = require('./threatData');
 const { notFound, errorHandler, asyncHandler, requestLogger, requireApiKey } = require('./middleware');
+const { vaultStore, decoyStore, passwordStore, shareStore, incidentStore } = require('./vault');
 
 // ─── Load threat intelligence ───────────────────────────────────────
 const THREAT_DATA = loadThreatData();
@@ -401,6 +402,141 @@ function createApp() {
       createdAt: g.createdAt,
     }));
     res.json({ count: groups.length, groups });
+  });
+
+  // ─── Tier 1: Secure Vault / Privacy ─────────────────────────────────
+  function deviceIdOf(req) {
+    return (req.body && req.body.deviceId) || req.query.deviceId;
+  }
+
+  // Shared item handler factory (vault + decoy share the same shape).
+  function mountItemRoutes(base, store) {
+    app.post(`${base}/items`, [body('payload').isString().notEmpty(), body('name').isString().notEmpty()], validate, (req, res) => {
+      const deviceId = deviceIdOf(req);
+      if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+      const item = store.addItem(deviceId, req.body);
+      res.status(201).json({ id: item.id, createdAt: item.createdAt });
+    });
+    app.get(`${base}/items`, (req, res) => {
+      const deviceId = deviceIdOf(req);
+      if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+      res.json({ items: store.listItems(deviceId) });
+    });
+    app.get(`${base}/items/:id`, (req, res) => {
+      const deviceId = deviceIdOf(req);
+      if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+      const item = store.getItem(deviceId, req.params.id);
+      if (!item) return res.status(404).json({ error: 'Item not found' });
+      res.json(item);
+    });
+    app.put(`${base}/items/:id`, (req, res) => {
+      const deviceId = deviceIdOf(req);
+      if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+      const updated = store.updateItem(deviceId, req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: 'Item not found' });
+      res.json(updated);
+    });
+    app.delete(`${base}/items/:id`, (req, res) => {
+      const deviceId = deviceIdOf(req);
+      if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+      const ok = store.removeItem(deviceId, req.params.id);
+      if (!ok) return res.status(404).json({ error: 'Item not found' });
+      res.json({ success: true });
+    });
+  }
+
+  mountItemRoutes('/api/vault', vaultStore);
+  mountItemRoutes('/api/vault/decoy', decoyStore);
+
+  app.post('/api/passwords/items', [body('payload').isString().notEmpty(), body('name').isString().notEmpty()], validate, (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const entry = passwordStore.addEntry(deviceId, req.body);
+    res.status(201).json({ id: entry.id });
+  });
+  app.get('/api/passwords/items', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    res.json({ items: passwordStore.listEntries(deviceId) });
+  });
+  app.get('/api/passwords/items/:id', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const entry = passwordStore.getEntry(deviceId, req.params.id);
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    res.json(entry);
+  });
+  app.delete('/api/passwords/items/:id', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const ok = passwordStore.removeEntry(deviceId, req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Entry not found' });
+    res.json({ success: true });
+  });
+
+  app.post('/api/share', [body('payload').isString().notEmpty()], validate, (req, res) => {
+    const { payload, iv, name, mimeType, maxViews, ttlSeconds } = req.body;
+    const share = shareStore.createShare({ payload, iv, name, mimeType, maxViews, ttlSeconds });
+    res.status(201).json({ token: share.token, expiresAt: share.expiresAt, maxViews: share.maxViews, viewsRemaining: share.viewsRemaining });
+  });
+  app.get('/api/share/:token', (req, res) => {
+    shareStore.purgeExpired();
+    const share = shareStore.getShare(req.params.token);
+    if (!share) return res.status(404).json({ error: 'Share not found or expired' });
+    res.json({ token: share.token, payload: share.payload, iv: share.iv, name: share.name, mimeType: share.mimeType, viewsRemaining: share.viewsRemaining, expiresAt: share.expiresAt });
+  });
+
+  app.post('/api/incidents', [body('type').isIn(['panic', 'duress', 'sos'])], validate, (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const inc = incidentStore.addIncident(deviceId, req.body);
+    res.status(201).json({ id: inc.id, type: inc.type, status: inc.status, createdAt: inc.createdAt });
+  });
+  app.get('/api/incidents', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const incidents = incidentStore.listIncidents(deviceId);
+    res.json({ count: incidents.length, incidents });
+  });
+  app.post('/api/incidents/:id/resolve', (req, res) => {
+    const inc = incidentStore.resolveIncident(req.params.id, req.body && req.body.resolution);
+    if (!inc) return res.status(404).json({ error: 'Incident not found' });
+    res.json(inc);
+  });
+  app.get('/api/incidents/admin', requireApiKey, (req, res) => {
+    const all = incidentStore.listAll();
+    const byType = { panic: 0, duress: 0, sos: 0 };
+    for (const i of all) byType[i.type] = (byType[i.type] || 0) + 1;
+    const recent = all.slice(-50).map((i) => ({ ...i, deviceId: i.deviceId ? i.deviceId.substring(0, 6) : i.deviceId }));
+    res.json({ count: all.length, byType, recent });
+  });
+
+  app.post('/api/threat-dashboard', (req, res) => {
+    const p = (req.body && req.body.posture) || {};
+    const checks = [
+      { key: 'rooted', pass: !p.rooted, fail: -40, msg: 'Device is rooted — avoid storing secrets here' },
+      { key: 'developerMode', pass: !p.developerMode, fail: -15, msg: 'Disable developer mode on this device' },
+      { key: 'vpnActive', pass: p.vpnActive, fail: -10, msg: 'Activate a VPN for network protection' },
+      { key: 'screenLock', pass: p.screenLock, fail: -15, msg: 'Enable a screen lock' },
+      { key: 'biometrics', pass: p.biometrics, fail: -5, msg: 'Enable biometrics (fingerprint/face) for unlock' },
+      { key: 'osUpdates', pass: p.osUpdates, fail: -10, msg: 'Install the latest OS security updates' },
+      { key: 'appIntegrity', pass: p.appIntegrity, fail: -30, msg: 'App integrity check failed — do not trust this installation' },
+    ];
+    let score = 100;
+    const recommendations = [];
+    for (const c of checks) {
+      if (!c.pass) { score += c.fail; recommendations.push(c.msg); }
+    }
+    score = Math.max(0, Math.min(100, score));
+    const riskLevel = score >= 80 ? 'low' : score >= 60 ? 'medium' : score >= 40 ? 'high' : 'critical';
+    res.json({ score, riskLevel, recommendations, checkedAt: Date.now() });
+  });
+
+  app.post('/api/emergency/sos', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const inc = incidentStore.addIncident(deviceId, { type: 'sos', location: req.body && req.body.location, battery: req.body && req.body.battery, note: req.body && req.body.message, metadata: { contacts: req.body && req.body.contacts } });
+    res.status(201).json({ id: inc.id, dispatched: false, note: 'Recorded. The mobile app dispatches alerts via platform APIs (SMS/call/deeplinks).', createdAt: inc.createdAt });
   });
 
   app.use(notFound);

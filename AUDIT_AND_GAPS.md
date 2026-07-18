@@ -143,8 +143,66 @@ to avoid deceptive-claims risk.
 
 ---
 
+## 6. Tier 1 Implementation (2026-07-18)
+
+Built directly in repo per `SHIELDGUARD_BUILD_PROMPT.md`. Design is **zero-knowledge**: the
+backend stores only opaque ciphertext + non-sensitive metadata; all keys live on-device
+(Android Keystore / iOS Keychain via `expo-secure-store`, PIN-derived AES-256 key). No
+deceptive claims were added.
+
+### Backend (`src/vault.js` + routes in `src/index.js`)
+- `POST/GET/GET:id/PUT/DELETE /api/vault/items` — encrypted vault items (photos, docs, notes,
+  passwords, IDs) scoped by `deviceId`; list endpoint never returns the ciphertext blob.
+- `POST/GET/GET:id/DELETE /api/vault/decoy/items` — isolated decoy store (same shape).
+- `POST/GET/GET:id/DELETE /api/passwords/items` — client-encrypted password-manager entries.
+- `POST /api/share` + `GET /api/share/:token` — one-time / TTL-bounded secure sharing (view
+  counter decrements; deleted at 0 views or expiry).
+- `POST/GET /api/incidents` + `POST /api/incidents/:id/resolve` + `GET /api/incidents/admin`
+  (requireApiKey) — panic / duress / SOS incident markers (server stores no content).
+- `POST /api/threat-dashboard` — scores a client-reported device posture (0–100, risk level +
+  recommendations).
+- `POST /api/emergency/sos` — records an SOS marker (does NOT send messages; the mobile app
+  dispatches via platform deeplinks). Also writes an `sos` incident.
+- Persistence via JSON files (`data/vault.json`, `decoy.json`, `passwords.json`, `share.json`,
+  `incidents.json`), same load/save pattern as `family.js`.
+- Added `tests/tier1.test.js` (10 tests). Full suite now **28 passing**, lint clean.
+
+### Mobile (`src/screens/*`, `src/context/*`, `src/services/*`)
+- `VaultContext` (unlock state + real/decoy mode + duress detection) and `PanicContext`
+  (panic trigger + timed key-destruction). `PinGate` reusable lock component.
+- `SecureVaultScreen` (folders: Personal/Finance/Medical/Family/Legal/Business/Passwords/
+  Emergency/Hidden, add/encrypt/view/search), `SecureNotesScreen`, `PasswordManagerScreen`
+  (generates strong passwords, stores encrypted, strength badge), `SecureShareScreen`
+  (create link w/ max-views + TTL, receive by token), `DuressPinScreen` (sets two PINs;
+  duress PIN silently opens decoy + logs incident), `PanicLockScreen`, `ThreatDashboardScreen`
+  (gathers best-effort posture → `/api/threat-dashboard`), `EmergencySOSScreen` (location +
+  `tel:`/SMS deeplinks).
+- `crypto.ts` extended with `encryptJson`/`decryptJson`/`randomPassword` + guarded
+  `expo-secure-store` token cache. `api.ts` extended with `vaultApi`/`decoyApi`/`passwordApi`/
+  `shareApi`/`incidentsApi`/`dashboardApi`/`sosApi`.
+- All new Stack screens registered; `VaultProvider`/`PanicProvider` wrap the app.
+- New deps added to `package.json`: `expo-secure-store`, `expo-image-picker`,
+  `expo-document-picker` (crypto-js/async-storage/expo-local-authentication/expo-location/
+  expo-notifications already present). **Action:** run `npx expo install` before building.
+- `tsc --noEmit` reports only the pre-existing `@types/node`-missing warning (unrelated);
+  no real type errors.
+
+### Office (`src/app/admin/*`, `src/lib/api.ts`, `src/lib/rbac.ts`)
+- `/admin/incidents` — Incident Logs (count, by-type cards, recent table, privacy note).
+- `/admin/threat-dashboard` — aggregates incident stats + a clearly-labeled static "Device
+  Threat Posture Guidance" panel (no fabricated live telemetry) + optional demo scoring call.
+- Sidebar entries added, gated to `super_admin` (same as Families). `tsc --noEmit` clean.
+
+### Honest limitations (carried forward from Section 3A)
+- SOS "dispatch" is best-effort deeplinks (`tel:`/sms/mailto); real SMS sending needs a
+  configured provider. The server only records the event.
+- Root/VPN/OS-update detection on-device is best-effort; the threat-dashboard scores whatever
+  the client reports. Server never sees vault plaintext.
+
+---
+
 ## 5. Verification Performed
-- `shieldguard-backend`: `npm test` → 13/13 pass; `npm run lint` → clean; server boots and
+- `shieldguard-backend`: `npm test` → 28/28 pass; `npm run lint` → clean; server boots and
   `/api/health` returns `threats: 52000, hashes: 52000`.
 - `shieldguard-office`: `npx tsc --noEmit` → exit 0.
 - `shieldguard-mobile`: type-correct by inspection; full `tsc` blocked only by not-yet-installed

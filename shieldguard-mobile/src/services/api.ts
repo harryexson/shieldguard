@@ -356,5 +356,134 @@ export const familyApi = {
   },
 };
 
+// ─── Vault API (zero-knowledge: payloads already encrypted client-side) ──────
+export interface VaultItemMeta {
+  id: string;
+  folder: string;
+  name: string;
+  mimeType: string;
+  kind: string;
+  favorite: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface VaultItem extends VaultItemMeta {
+  payload: string; // encrypted JSON blob
+}
+
+export type VaultKind = 'photo' | 'video' | 'doc' | 'audio' | 'note' | 'password' | 'id';
+
+export const vaultApi = {
+  list: (): Promise<VaultItemMeta[]> =>
+    api.get('/vault/items').then((r) => (r.data.items as VaultItemMeta[]) || []),
+  get: (id: string): Promise<VaultItem> => api.get(`/vault/items/${id}`).then((r) => r.data),
+  create: (item: { folder: string; name: string; mimeType: string; kind: string; payload: string; favorite?: boolean }): Promise<VaultItem> =>
+    api.post('/vault/items', item).then((r) => r.data),
+  update: (id: string, patch: Partial<{ folder: string; name: string; mimeType: string; kind: string; payload: string; favorite: boolean }>): Promise<VaultItem> =>
+    api.put(`/vault/items/${id}`, patch).then((r) => r.data),
+  remove: (id: string): Promise<{ success: boolean }> =>
+    api.delete(`/vault/items/${id}`).then((r) => r.data),
+};
+
+// ─── Decoy vault (same shape, separate namespace) ────────────────────────────
+export const decoyApi = {
+  list: (): Promise<VaultItemMeta[]> =>
+    api.get('/vault/decoy/items').then((r) => (r.data.items as VaultItemMeta[]) || []),
+  get: (id: string): Promise<VaultItem> => api.get(`/vault/decoy/items/${id}`).then((r) => r.data),
+  create: (item: { folder: string; name: string; mimeType: string; kind: string; payload: string; favorite?: boolean }): Promise<VaultItem> =>
+    api.post('/vault/decoy/items', item).then((r) => r.data),
+  update: (id: string, patch: Partial<{ folder: string; name: string; mimeType: string; kind: string; payload: string; favorite: boolean }>): Promise<VaultItem> =>
+    api.put(`/vault/decoy/items/${id}`, patch).then((r) => r.data),
+  remove: (id: string): Promise<{ success: boolean }> =>
+    api.delete(`/vault/decoy/items/${id}`).then((r) => r.data),
+};
+
+// ─── Password manager API ────────────────────────────────────────────────────
+export interface PasswordItem {
+  id: string;
+  name: string;
+  username?: string;
+  siteUrl?: string;
+  payload: string; // encrypted JSON { password, notes }
+  strength?: number;
+  createdAt: number;
+}
+
+export const passwordApi = {
+  list: (): Promise<PasswordItem[]> =>
+    api.get('/passwords/items').then((r) => (r.data.items as PasswordItem[]) || []),
+  get: (id: string): Promise<PasswordItem> => api.get(`/passwords/items/${id}`).then((r) => r.data),
+  create: (e: { name: string; username?: string; siteUrl?: string; payload: string; strength?: number }): Promise<PasswordItem> =>
+    api.post('/passwords/items', e).then((r) => r.data),
+  remove: (id: string): Promise<{ success: boolean }> =>
+    api.delete(`/passwords/items/${id}`).then((r) => r.data),
+};
+
+// ─── Secure share API ────────────────────────────────────────────────────────
+export interface ShareMeta {
+  token: string;
+  name?: string;
+  mimeType?: string;
+  maxViews?: number;
+  ttlSeconds?: number;
+  views?: number;
+  expiresAt?: number;
+}
+
+export const shareApi = {
+  create: (s: { payload: string; iv?: string; name?: string; mimeType?: string; maxViews?: number; ttlSeconds?: number }): Promise<ShareMeta> =>
+    api.post('/share', s).then((r) => r.data),
+  fetch: (token: string): Promise<{ payload: string; name?: string; mimeType?: string; views?: number }> =>
+    api.get(`/share/${token}`).then((r) => r.data),
+};
+
+// ─── Incident API (panic / duress / sos) ─────────────────────────────────────
+export type IncidentType = 'panic' | 'duress' | 'sos';
+
+export interface Incident {
+  id: string;
+  type: IncidentType;
+  createdAt: number;
+  location?: { lat: number; lng: number };
+  battery?: number;
+  note?: string;
+  metadata?: Record<string, any>;
+}
+
+export const incidentsApi = {
+  create: (i: { type: IncidentType; location?: any; battery?: number; note?: string; metadata?: any }): Promise<Incident> =>
+    api.post('/incidents', i).then((r) => r.data),
+  list: (): Promise<Incident[]> => api.get('/incidents').then((r) => r.data),
+};
+
+// ─── Threat dashboard / device posture API ───────────────────────────────────
+export interface DevicePosture {
+  rooted: boolean;
+  developerMode: boolean;
+  vpnActive: boolean;
+  screenLock: boolean;
+  biometrics: boolean;
+  osUpdates: boolean;
+  appIntegrity: boolean;
+}
+
+export interface DashboardResult {
+  score: number; // 0-100
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  recommendations: string[];
+}
+
+export const dashboardApi = {
+  check: (posture: DevicePosture): Promise<DashboardResult> =>
+    api.post('/threat-dashboard', { posture }).then((r) => r.data),
+};
+
+// ─── Emergency SOS API ───────────────────────────────────────────────────────
+export const sosApi = {
+  trigger: (p: { location?: any; message?: string; contacts?: any[]; battery?: number }): Promise<{ id: string }> =>
+    api.post('/emergency/sos', p).then((r) => r.data),
+};
+
 export { api };
 export default api;

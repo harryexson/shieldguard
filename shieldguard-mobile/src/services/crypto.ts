@@ -74,3 +74,68 @@ export async function secureRemove(key: string): Promise<void> {
     // ignore
   }
 }
+
+// ─── JSON encryption helpers (zero-knowledge vault) ──────────────────────────
+export function encryptJson(obj: unknown, pin: string): string {
+  return encryptSecret(JSON.stringify(obj), pin);
+}
+
+export function decryptJson<T>(payload: string, pin: string): T {
+  return JSON.parse(decryptSecret(payload, pin)) as T;
+}
+
+// ─── Strong password generator ───────────────────────────────────────────────
+const PW_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const PW_LOWER = 'abcdefghijkmnopqrstuvwxyz';
+const PW_DIGIT = '23456789';
+const PW_SYMBOL = '!@#$%^&*()-_=+[]{}';
+
+export function randomPassword(length = 20): string {
+  const all = PW_UPPER + PW_LOWER + PW_DIGIT + PW_SYMBOL;
+  let out = '';
+  // Guarantee at least one of each class for strength.
+  out += PW_UPPER[Math.floor(Math.random() * PW_UPPER.length)];
+  out += PW_LOWER[Math.floor(Math.random() * PW_LOWER.length)];
+  out += PW_DIGIT[Math.floor(Math.random() * PW_DIGIT.length)];
+  out += PW_SYMBOL[Math.floor(Math.random() * PW_SYMBOL.length)];
+  for (let i = out.length; i < length; i++) {
+    out += all[Math.floor(Math.random() * all.length)];
+  }
+  // Shuffle so the guaranteed chars aren't always at the front.
+  const arr = out.split('');
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
+}
+
+// ─── Optional secure key cache (guarded; never required for app to run) ──────
+// We never store the raw PIN. This is a best-effort in-memory-style cache of a
+// short-lived unlock token. Falls back silently when expo-secure-store missing.
+export async function cacheUnlockToken(token: string): Promise<void> {
+  try {
+    const SecureStore = require('expo-secure-store');
+    await SecureStore.setItemAsync('shieldguard_vault_unlock_token', token);
+  } catch {
+    // ignore — module not installed or unavailable
+  }
+}
+
+export async function readUnlockToken(): Promise<string | null> {
+  try {
+    const SecureStore = require('expo-secure-store');
+    return await SecureStore.getItemAsync('shieldguard_vault_unlock_token');
+  } catch {
+    return null;
+  }
+}
+
+export async function clearUnlockToken(): Promise<void> {
+  try {
+    const SecureStore = require('expo-secure-store');
+    await SecureStore.deleteItemAsync('shieldguard_vault_unlock_token');
+  } catch {
+    // ignore
+  }
+}
