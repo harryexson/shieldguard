@@ -255,8 +255,56 @@ a redacted summary (risk level + short preview), never raw events or PII.
 
 ---
 
+## 8. Tier 3 Implementation (2026-07-18)
+
+Built directly in repo per `SHIELDGUARD_BUILD_PROMPT.md` (features 18–24 + AI 27–29). Design
+remains **zero-knowledge**: sync/messaging carry only client-encrypted ciphertext; audit events
+store only `{ type, at, deviceId }`; remote commands store only the instruction + target.
+
+### Backend (`src/tier3.js`, `src/ai.js` extensions, routes in `src/index.js`)
+- Encrypted **sync/messaging**: `POST /api/sync/push` + `GET /api/sync/pull?channel=&since=` —
+  server stores/relays only ciphertext blobs per channel (no decryption).
+- **Remote device commands**: `POST /api/device/command` (family owner → member; 403 if not
+  owner), `GET /api/device/commands` (pending for a device), `POST /api/device/command/:id/ack`.
+  `POST /api/admin/device/command` (`requireApiKey`) issues to any device (office remote wipe).
+- **Audit trail**: `POST /api/audit` (redacted — type only), `GET /api/audit`, `GET /api/audit/admin`
+  (`requireApiKey`, aggregated + masked).
+- **AI 27/28/29**: `POST /api/ai/privacy-coach`, `/api/ai/threat-explain`, `/api/ai/emergency-assist`
+  — rule-based by default (optional guarded LLM via `OPENAI_API_KEY`); no PII persisted.
+- New JSON stores: `data/sync.json`, `data/commands.json`, `data/audit.json`.
+- Added `tests/tier3.test.js` (8 tests). Full suite now **38 passing**, lint clean.
+
+### Mobile (`src/screens/*`, `src/services/auditLog.ts`)
+- `SecureMessagingScreen` (18) — simplified shared-key E2E chat within a family (ciphertext relayed
+  via sync); honest "not Signal-grade" note.
+- `SecureCallScreen` (19) — `tel:`/`facetime:`/`signal:` deeplinks; honest "no in-app calling" note.
+- `DeviceSyncScreen` (20) — client-encrypted vault sync across family devices.
+- `RemoteWipeScreen` (21) — owner issues wipe/lock/notify; device polls pending commands and
+  wipes local data on a `wipe` command (best-effort).
+- `GeoReminderScreen` (22) — location reminders (NOT GPS spoofing).
+- `AuditLogScreen` (23) — local `AsyncStorage` trail; `auditLog.add` wired into `VaultContext`
+  (unlock success/failure) and `PanicContext` (panic/duress).
+- `TeamAdminScreen` (24) — family/team management (members, remove, invite) reusing `familyApi`.
+- `AiPrivacyCoachScreen` / `AiThreatExplainScreen` / `AiEmergencyAssistScreen` (27/28/29).
+- `api.ts` extended with `syncApi`, `commandApi`, `auditApi`, and `aiApi.privacyCoach/
+  threatExplain/emergencyAssist`; all 10 Stack screens registered. `tsc` clean except the
+  pre-existing `@types/node` warning.
+
+### Office (`src/app/admin/teams`, `src/app/admin/audit`, `src/lib/api.ts`, `src/lib/rbac.ts`)
+- `/admin/teams` — lists family groups + member devices with a "Remote Wipe" action
+  (`POST /api/admin/device/command`); honest best-effort note.
+- `/admin/audit` — aggregated redacted audit stats (type + masked deviceId + time) + privacy note.
+- `officeApi` gains `getFamiliesAdmin`, `adminDeviceCommand`, `getAuditAdmin`; sidebar entries
+  gated `super_admin`. `tsc --noEmit` clean.
+
+### Honest limitations carried forward
+- Team messaging is shared-key, not a full E2E protocol; calling is deeplinks only; remote wipe is
+  best-effort (connectivity + app open); geofencing is app-reminders only. AI is rule-based offline.
+
+---
+
 ## 5. Verification Performed
-- `shieldguard-backend`: `npm test` → 32/32 pass; `npm run lint` → clean; server boots and
+- `shieldguard-backend`: `npm test` → 38/38 pass; `npm run lint` → clean; server boots and
   `/api/health` returns `threats: 52000, hashes: 52000`.
 - `shieldguard-office`: `npx tsc --noEmit` → exit 0.
 - `shieldguard-mobile`: type-correct by inspection; full `tsc` blocked only by not-yet-installed

@@ -125,7 +125,19 @@ honest accounting is in [AUDIT_AND_GAPS.md](./AUDIT_AND_GAPS.md).
 - **AI Security Advisor** — turns device signals into a risk level + recommendations (rule-based by default; optional LLM).
 - **AI Incident Reports** — summarizes security events (panic/duress/SOS) into a plain-language brief + risk level. The server stores only a redacted summary.
 
-### Tier 1 & Tier 2 API Endpoints
+### Tier 3 — Premium (implemented)
+- **Secure Team Messaging (18)** — simplified shared-key E2E chat within your Family/team, relayed as ciphertext only. ⚠️ Shared-key model, not a Signal-grade protocol.
+- **Secure Calls (19)** — one-tap deeplinks to call / FaceTime / Signal your contacts. ⚠️ Best-effort platform deeplinks; ShieldGuard does **not** provide in-app encrypted calling.
+- **Multi-Device Sync (20)** — client-encrypted sync of vault data across your family devices (ciphertext only).
+- **Remote Device Wipe (21)** — a family owner (or office admin) can issue a wipe/lock/notify command to a member device; the device wipes local data when it next checks in. ⚠️ Best-effort — requires connectivity + the app to be open.
+- **Geofenced Reminders (22)** — location-based reminders for the app itself. ⚠️ Reminders only; does **not** spoof or alter your real location.
+- **Audit Log (23)** — local, user-visible trail of security events (unlocks, panic, backups, syncs).
+- **Team Administration (24)** — manage your Family/team (members, roles, remove) in-app; the office admin "Teams" page can trigger a remote wipe.
+- **AI Privacy Coach (27)** — contextual privacy tips from your device signals.
+- **AI Threat Explanations (28)** — turns a cryptic warning into plain-language guidance.
+- **AI Emergency Assistant (29)** — during an emergency, gives ordered steps + shows contacts.
+
+### Tier 1, Tier 2 & Tier 3 API Endpoints
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | /api/vault/items | Store encrypted vault item (ciphertext + metadata) |
@@ -146,6 +158,18 @@ honest accounting is in [AUDIT_AND_GAPS.md](./AUDIT_AND_GAPS.md).
 | POST | /api/ai/advise | Security recommendations from signals (rule-based or optional LLM) |
 | POST | /api/ai/summarize-incident | Summarize events into a report + risk level |
 | GET | /api/ai/reports/admin | Aggregated AI-report stats (`requireApiKey`) |
+| POST | /api/sync/push | Store encrypted sync/message blob (ciphertext) for a channel |
+| GET | /api/sync/pull | Pull sync/message blobs newer than `since` for a channel |
+| POST | /api/device/command | Owner issues wipe/lock/notify to a family member |
+| GET | /api/device/commands | Pending commands for a device |
+| POST | /api/device/command/:id/ack | Acknowledge a command |
+| POST | /api/audit | Append a redacted audit event (type only, no PII) |
+| GET | /api/audit | List a device's audit events |
+| GET | /api/audit/admin | Aggregated redacted audit stats (`requireApiKey`) |
+| POST | /api/admin/device/command | Admin override: issue a command to any device (`requireApiKey`) |
+| POST | /api/ai/privacy-coach | Contextual privacy tips (rule-based or optional LLM) |
+| POST | /api/ai/threat-explain | Explain a warning (rule-based or optional LLM) |
+| POST | /api/ai/emergency-assist | Emergency guidance (rule-based or optional LLM) |
 
 ## Running the Application
 
@@ -352,8 +376,14 @@ Key points:
   sharing, encrypted backup & restore, AI security advisor, AI incident reports) are implemented
   across the mobile app, backend (`src/vault.js`, `src/tier2.js`, `src/ai.js`), and office admin
   pages. See the **Privacy & Security Feature Tiers** section above.
-- The backend test suite is **32 passing** (detection, hash matching, vault/decoy/password/share,
-  incidents, threat-dashboard, SOS, backup, device-scan, AI advise/summarize) and lint is clean.
+- **Tier 3** (secure team messaging, secure calls, multi-device sync, remote device wipe,
+  geofenced reminders, audit log, team administration, AI privacy coach/threat explanations/
+  emergency assistant) is implemented across the mobile app, backend (`src/tier3.js` +
+  `src/ai.js` extensions), and office admin pages. See the **Privacy & Security Feature Tiers**
+  section above.
+- The backend test suite is **38 passing** (detection, hash matching, vault/decoy/password/share,
+  incidents, threat-dashboard, SOS, backup, device-scan, AI advise/summarize, sync, remote
+  commands, audit, AI coach/explain/assist) and lint is clean.
 - Some advertised capabilities are **physically impossible on stock phone hardware**
   (true IMSI-catcher/Stingray detection, native GPS spoofing, drone/RF blocking, defeating
   physical forensic extraction). These are documented honestly in-app and are not faked.

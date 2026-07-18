@@ -14,7 +14,8 @@ const { loadThreatData } = require('./threatData');
 const { notFound, errorHandler, asyncHandler, requestLogger, requireApiKey } = require('./middleware');
 const { vaultStore, decoyStore, passwordStore, shareStore, incidentStore } = require('./vault');
 const { backupStore, deviceSecurityStore, aiReportStore } = require('./tier2');
-const { advise, summarizeIncident } = require('./ai');
+const { syncStore, commandStore, auditStore } = require('./tier3');
+const { advise, summarizeIncident, privacyCoach, threatExplain, emergencyAssist } = require('./ai');
 
 // ─── Load threat intelligence ───────────────────────────────────────
 const THREAT_DATA = loadThreatData();
@@ -587,6 +588,102 @@ function createApp() {
     const agg = aiReportStore.aggregate();
     res.json(agg);
   });
+
+  // ─── Tier 3: Privacy / Security backend ──────────────────────────────
+  // Zero-knowledge: sync/messaging store ONLY client-encrypted ciphertext;
+  // audit events store ONLY { type, at, deviceId }; remote commands store
+  // ONLY the instruction + target deviceId. No plaintext secrets or PII.
+
+  // (18) End-to-end multi-device messaging (simplified shared-key model)
+  app.post('/api/sync/push', [body('ciphertext').isString().notEmpty(), body('channel').isString().notEmpty()], validate, (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const r = syncStore.push(deviceId, { channel: req.body.channel, ciphertext: req.body.ciphertext, kind: req.body.kind });
+    res.status(201).json({ id: r.id, updatedAt: r.updatedAt });
+  });
+
+  app.get('/api/sync/pull', (req, res) => {
+    const { deviceId, channel, since } = req.query;
+    if (!channel) return res.status(400).json({ error: 'channel is required' });
+    const items = syncStore.pull(channel, Number(since) || 0);
+    res.json({ items });
+  });
+
+  // (21) Remote device management + best-effort remote vault wipe
+  app.post('/api/device/command', (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    if (!req.body || !req.body.targetDeviceId || !req.body.type) {
+      return res.status(400).json({ error: 'targetDeviceId and type are required' });
+    }
+    try {
+      const c = commandStore.issue(deviceId, req.body.targetDeviceId, req.body.type, req.body.payload);
+      res.status(201).json(c);
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/device/commands', (req, res) => {
+    const deviceId = req.query.deviceId;
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    res.json({ commands: commandStore.pendingFor(deviceId) });
+  });
+
+  app.post('/api/device/command/:id/ack', (req, res) => {
+    const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const c = commandStore.ack(req.params.id, deviceId);
+    if (!c) return res.status(404).json({ error: 'Command not found' });
+    res.json(c);
+  });
+
+  // (23) Audit logs (redacted — type + deviceId + timestamp only)
+  app.post('/api/audit', [body('type').isString().notEmpty()], validate, (req, res) => {
+    const deviceId = deviceIdOf(req);
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    const e = auditStore.append(deviceId, req.body.type);
+    res.status(201).json({ id: e.id, at: e.at });
+  });
+
+  app.get('/api/audit', (req, res) => {
+    const deviceId = req.query.deviceId;
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+    res.json({ events: auditStore.list(deviceId) });
+  });
+
+  app.get('/api/audit/admin', requireApiKey, (req, res) => {
+    res.json(auditStore.aggregate());
+  });
+
+  // (24) Team / office administration — admin can trigger remote wipe for any device
+  app.post('/api/admin/device/command', requireApiKey, (req, res) => {
+    if (!req.body || !req.body.targetDeviceId || !req.body.type) {
+      return res.status(400).json({ error: 'targetDeviceId and type are required' });
+    }
+    try {
+      const c = commandStore.issueAdmin(req.body.targetDeviceId, req.body.type, req.body.payload);
+      res.status(201).json(c);
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message });
+    }
+  });
+
+  // (27)(28)(29) AI privacy features
+  app.post('/api/ai/privacy-coach', asyncHandler(async (req, res) => {
+    const r = await privacyCoach((req.body && req.body.signals) || {});
+    res.json(r);
+  }));
+
+  app.post('/api/ai/threat-explain', asyncHandler(async (req, res) => {
+    const r = await threatExplain((req.body && req.body.warning) || '');
+    res.json(r);
+  }));
+
+  app.post('/api/ai/emergency-assist', asyncHandler(async (req, res) => {
+    const r = await emergencyAssist((req.body && req.body.context) || {});
+    res.json(r);
+  }));
 
   app.use(notFound);
   app.use(errorHandler);

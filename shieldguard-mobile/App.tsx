@@ -41,6 +41,16 @@ import { QrSecureShareScreen } from './src/screens/QrSecureShareScreen';
 import { BackupRestoreScreen } from './src/screens/BackupRestoreScreen';
 import { AiAdvisorScreen } from './src/screens/AiAdvisorScreen';
 import { AiIncidentReportScreen } from './src/screens/AiIncidentReportScreen';
+import { SecureMessagingScreen } from './src/screens/SecureMessagingScreen';
+import { SecureCallScreen } from './src/screens/SecureCallScreen';
+import { DeviceSyncScreen } from './src/screens/DeviceSyncScreen';
+import { RemoteWipeScreen } from './src/screens/RemoteWipeScreen';
+import { GeoReminderScreen } from './src/screens/GeoReminderScreen';
+import { AuditLogScreen } from './src/screens/AuditLogScreen';
+import { TeamAdminScreen } from './src/screens/TeamAdminScreen';
+import { AiPrivacyCoachScreen } from './src/screens/AiPrivacyCoachScreen';
+import { AiThreatExplainScreen } from './src/screens/AiThreatExplainScreen';
+import { AiEmergencyAssistScreen } from './src/screens/AiEmergencyAssistScreen';
 import { COLORS } from './src/constants';
 
 const Tab = createBottomTabNavigator();
@@ -164,6 +174,16 @@ export default function App() {
                 <Stack.Screen name="BackupRestore" component={BackupRestoreScreen} />
                 <Stack.Screen name="AiAdvisor" component={AiAdvisorScreen} />
                 <Stack.Screen name="AiIncidentReport" component={AiIncidentReportScreen} />
+                <Stack.Screen name="SecureMessaging" component={SecureMessagingScreen} />
+                <Stack.Screen name="SecureCall" component={SecureCallScreen} />
+                <Stack.Screen name="DeviceSync" component={DeviceSyncScreen} />
+                <Stack.Screen name="RemoteWipe" component={RemoteWipeScreen} />
+                <Stack.Screen name="GeoReminder" component={GeoReminderScreen} />
+                <Stack.Screen name="AuditLog" component={AuditLogScreen} />
+                <Stack.Screen name="TeamAdmin" component={TeamAdminScreen} />
+                <Stack.Screen name="AiPrivacyCoach" component={AiPrivacyCoachScreen} />
+                <Stack.Screen name="AiThreatExplain" component={AiThreatExplainScreen} />
+                <Stack.Screen name="AiEmergencyAssist" component={AiEmergencyAssistScreen} />
               </Stack.Navigator>
             </NavigationContainer>
           </PanicProvider>

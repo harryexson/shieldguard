@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hashPin, secureGet, secureSet, clearUnlockToken, cacheUnlockToken } from '../services/crypto';
 import { incidentsApi } from '../services/api';
+import { auditLog } from '../services/auditLog';
 
 type Mode = 'real' | 'decoy';
 
@@ -91,8 +92,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setMode('real');
       setIsUnlocked(true);
       await cacheUnlockToken(enteredPin).catch(() => undefined);
+      auditLog.add('vault_unlock_success').catch(() => undefined);
       return true;
     }
+    auditLog.add('vault_unlock_failed').catch(() => undefined);
     return false;
   }, [setPin]);
 

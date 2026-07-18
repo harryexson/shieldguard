@@ -172,6 +172,21 @@ export const aiApi = {
     const response = await api.post('/ai/summarize-incident', { events });
     return response.data;
   },
+
+  privacyCoach: async (signals: any): Promise<AiPrivacyCoach> => {
+    const response = await api.post('/ai/privacy-coach', { signals });
+    return response.data;
+  },
+
+  threatExplain: async (warning: string): Promise<AiThreatExplain> => {
+    const response = await api.post('/ai/threat-explain', { warning });
+    return response.data;
+  },
+
+  emergencyAssist: async (context: any): Promise<AiEmergencyAssist> => {
+    const response = await api.post('/ai/emergency-assist', { context });
+    return response.data;
+  },
 };
 
 // ─── Anonymization API ───────────────────────────────────────────────
@@ -453,12 +468,82 @@ export const deviceSecurityApi = {
     api.get('/device/security-scan').then((r) => r.data),
 };
 
+// ─── Encrypted sync relay (zero-knowledge: ciphertext only) ─────────────────
+export interface SyncItem {
+  id: string;
+  deviceId: string;
+  channel: string;
+  ciphertext: string;
+  kind?: string;
+  updatedAt: number;
+}
+
+export const syncApi = {
+  push: (channel: string, ciphertext: string, kind?: string): Promise<{ id: string; updatedAt: number }> =>
+    api.post('/sync/push', { channel, ciphertext, kind }).then((r) => r.data),
+  pull: (channel: string, since?: number): Promise<{ items: SyncItem[] }> =>
+    api.get('/sync/pull', { params: { channel, since } }).then((r) => r.data),
+};
+
+// ─── Remote device commands (owner → member) ────────────────────────────────
+export type DeviceCommandType = 'wipe' | 'lock' | 'notify';
+export type DeviceCommandStatus = 'pending' | 'acked';
+
+export interface DeviceCommand {
+  id: string;
+  targetDeviceId: string;
+  type: DeviceCommandType;
+  payload?: any;
+  status: DeviceCommandStatus;
+  createdAt: number;
+}
+
+export const commandApi = {
+  issue: (targetDeviceId: string, type: DeviceCommandType, payload?: any): Promise<{ id: string }> =>
+    api.post('/device/command', { targetDeviceId, type, payload }).then((r) => r.data),
+  pending: (): Promise<{ commands: DeviceCommand[] }> =>
+    api.get('/device/commands').then((r) => r.data),
+  ack: (id: string): Promise<{ success: boolean }> =>
+    api.post(`/device/command/${id}/ack`).then((r) => r.data),
+};
+
+// ─── Audit log (server mirror) ───────────────────────────────────────────────
+export interface AuditEvent {
+  id: string;
+  type: string;
+  at: number;
+}
+
+export const auditApi = {
+  append: (type: string): Promise<{ id: string; at: number }> =>
+    api.post('/audit', { type }).then((r) => r.data),
+  list: (): Promise<{ events: AuditEvent[] }> =>
+    api.get('/audit').then((r) => r.data),
+};
+
 // ─── AI advisor / incident report API ─────────────────────────────────────────
 export interface AiAdvice {
   provider: 'rule-based' | 'llm';
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   summary: string;
   recommendations: string[];
+}
+
+export interface AiPrivacyCoach {
+  provider: 'rule-based' | 'llm';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  tips: string[];
+}
+
+export interface AiThreatExplain {
+  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+  explanation: string;
+  recommendedActions: string[];
+}
+
+export interface AiEmergencyAssist {
+  steps: string[];
+  contactsNote: string;
 }
 
 export interface AiIncidentReport {

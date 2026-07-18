@@ -50,6 +50,12 @@ export interface ThreatFeedItem {
   status: string;
 }
 
+export interface FamilyMemberDevice {
+  deviceId: string;
+  name?: string;
+  isOwner?: boolean;
+}
+
 export interface FamilyGroup {
   id: string;
   name: string;
@@ -58,11 +64,34 @@ export interface FamilyGroup {
   deviceLimit: number;
   pendingInvites: number;
   createdAt: string;
+  devices?: FamilyMemberDevice[];
 }
 
 export interface FamilyAdminResponse {
   count: number;
   groups: FamilyGroup[];
+}
+
+export type AdminDeviceCommandType = 'wipe' | 'lock' | 'notify';
+
+export interface AdminDeviceCommandResponse {
+  id: string;
+  targetDeviceId: string;
+  type: AdminDeviceCommandType;
+  createdAt?: string;
+}
+
+export interface AuditEventAdmin {
+  id: string;
+  type: string;
+  deviceId: string;
+  at: string;
+}
+
+export interface AuditAdminResponse {
+  count: number;
+  byType: Record<string, number>;
+  recent: AuditEventAdmin[];
 }
 
 export type IncidentType = 'panic' | 'duress' | 'sos';
@@ -133,8 +162,12 @@ export const officeApi = {
   me: (deviceId?: string) => api.get<{ tier: string; plan: string; features: string[] }>(`/me${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`),
   billingPlans: () => api.get<any[]>('/billing/plans'),
   getFamilies: () => api.get<FamilyAdminResponse>('/family/admin'),
+  getFamiliesAdmin: () => api.get<FamilyAdminResponse>('/family/admin'),
+  adminDeviceCommand: (targetDeviceId: string, type: AdminDeviceCommandType, payload?: any) =>
+    api.post<AdminDeviceCommandResponse>('/admin/device/command', { targetDeviceId, type, payload }),
   getIncidentsAdmin: () => api.get<IncidentsAdminResponse>('/incidents/admin'),
   scoreThreatDashboard: (posture: ThreatPosture) =>
     api.post<ThreatDashboardResponse>('/threat-dashboard', { posture }),
   getAiReportsAdmin: () => api.get<AiReportsAdminResponse>('/ai/reports/admin'),
+  getAuditAdmin: () => api.get<AuditAdminResponse>('/audit/admin'),
 };

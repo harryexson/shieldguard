@@ -3,6 +3,7 @@ import { Alert, AppState } from 'react-native';
 import { clearLocalData } from '../services/crypto';
 import { incidentsApi } from '../services/api';
 import { getBatteryLevel } from '../services/deviceInfo';
+import { auditLog } from '../services/auditLog';
 
 interface PanicContextType {
   isPanicked: boolean;
@@ -23,6 +24,7 @@ export function PanicProvider({ children }: { children: ReactNode }) {
 
   const triggerPanic = useCallback(async () => {
     setIsPanicked(true);
+    auditLog.add('panic_triggered').catch(() => undefined);
     // Best-effort incident report.
     try {
       const battery = await getBatteryLevel();
@@ -50,6 +52,7 @@ export function PanicProvider({ children }: { children: ReactNode }) {
         clearInterval(interval);
         setDestructionAt(null);
         await clearLocalData();
+        auditLog.add('duress_wipe').catch(() => undefined);
         setIsPanicked(true);
         Alert.alert('Keys destroyed', 'Timed key-destruction expired. Local data wiped and vault locked.');
       }
