@@ -7,11 +7,12 @@ const rateLimit = require('express-rate-limit');
 const { body, query, validationResult } = require('express-validator');
 
 const { setupBilling, registerWebhook } = require('./billing');
-const { FEATURES, featureAllowed } = require('./features');
+const { FEATURES, featureAllowed } = require('@shieldguard/shared');
 const { getEntitlements } = require('./subscriptions');
 const { analyzeSms, analyzeEmail } = require('./detection');
 const { loadThreatData } = require('./threatData');
-const { notFound, errorHandler, asyncHandler, requestLogger, requireApiKey } = require('./middleware');
+const { notFound, errorHandler, asyncHandler, requestLogger, requireApiKey, requireDevice } = require('./middleware');
+const { registerDevice, exchangeToken, revokeDevice } = require('./auth');
 const { vaultStore, decoyStore, passwordStore, shareStore, incidentStore } = require('./vault');
 const { backupStore, deviceSecurityStore, aiReportStore } = require('./tier2');
 const { syncStore, commandStore, auditStore } = require('./tier3');
@@ -97,6 +98,11 @@ const BEHAVIORAL_PATTERNS = [
 
 function analyzeThreatRisk(packageName, permissions, indicators) {
   const dangerousPerms = ['camera', 'record_audio', 'access_fine_location', 'access_coarse_location', 'read_sms', 'send_sms', 'read_contacts', 'read_call_log', 'bind_accessibility_service'];
+
+  // Confirmed match against the known-threat signature database takes priority
+  // over any heuristic. We never invent a "confirmed" verdict for indicators alone.
+  const knownThreat = checkPackageForThreat(packageName);
+
   let totalWeight = 0;
   let matchedWeight = 0;
   const riskFactors = [];
@@ -118,15 +124,37 @@ function analyzeThreatRisk(packageName, permissions, indicators) {
   else if (permRiskCount >= 2) matchedWeight += 10;
 
   const rawScore = totalWeight > 0 ? Math.min(100, Math.round((matchedWeight / totalWeight) * 100)) : 0;
-  const confidence = Math.min(100, Math.round(riskFactors.length * 12 + 20));
+
+  // Honest verification status. We distinguish between what is actually known
+  // (a signature hit) and what is merely suspected from client-reported signals.
+  // The AI engine MUST NOT fabricate a numeric "confidence" or claim a threat is
+  // confirmed when only heuristics fired.
+  let verification;
+  if (knownThreat) {
+    verification = 'confirmed';
+  } else if (riskFactors.length > 0 || permRiskCount >= 2) {
+    verification = 'likely';
+  } else if (packageName) {
+    verification = 'unknown';
+  } else {
+    verification = 'unable_to_verify';
+  }
 
   let recommendation;
-  if (rawScore >= 70) recommendation = 'High risk: Immediate quarantine and factory reset recommended';
+  if (knownThreat) recommendation = `Known threat (${knownThreat.id}): quarantine and remove this app immediately`;
+  else if (rawScore >= 70) recommendation = 'High risk: Investigate app permissions and network behavior; consider removing it';
   else if (rawScore >= 40) recommendation = 'Medium risk: Investigate app permissions and network behavior';
   else if (rawScore >= 20) recommendation = 'Low risk: Monitor app behavior and review permissions';
   else recommendation = 'Minimal risk: Continue normal monitoring';
 
-  return { score: rawScore, confidence, riskFactors, recommendation };
+  return {
+    score: rawScore,
+    verification,
+    basis: knownThreat ? 'signature' : (riskFactors.length > 0 || permRiskCount >= 2 ? 'heuristic' : 'none'),
+    knownThreatId: knownThreat ? knownThreat.id : null,
+    riskFactors,
+    recommendation,
+  };
 }
 
 // ─── Persistence (JSON file with per-write locking) ─────────────────
@@ -220,6 +248,35 @@ function createApp() {
   app.get('/api/me', [query('deviceId').isString().notEmpty()], validate, (req, res) => {
     const deviceId = req.query.deviceId;
     res.json(getEntitlements(deviceId));
+  });
+
+  // ─── Device identity bootstrap (public; gated by the per-install secret) ──
+  // First launch: the app generates a random deviceSecret in the OS secure
+  // store and registers it. It gets back a signed JWT (30-day TTL) used for all
+  // data-plane requests. This replaces trust in a client-supplied deviceId.
+  app.post('/api/device/register', (req, res) => {
+    try {
+      const { deviceId, token, existing } = registerDevice(req.body || {});
+      res.status(existing ? 200 : 201).json({ deviceId, token });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/device/token', (req, res) => {
+    try {
+      const { deviceId, token } = exchangeToken(req.body || {});
+      res.json({ deviceId, token });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message });
+    }
+  });
+
+  // Revoke the calling device (device-token authenticated). Irreversible server-side.
+  app.post('/api/device/revoke', requireDevice, (req, res) => {
+    if (!req.deviceId) return res.status(401).json({ error: 'Device token required' });
+    const ok = revokeDevice(req.deviceId);
+    res.json({ success: ok });
   });
 
   // ─── Detection services (tier-gated) ──
@@ -347,7 +404,7 @@ function createApp() {
     createFamily, getGroupForDevice, inviteMember, joinFamily, removeMember, leaveFamily, listAllGroups, publicView,
   } = require('./family');
 
-  app.post('/api/family/create', requireApiKey, (req, res) => {
+  app.post('/api/family/create', requireApiKey, requireDevice, (req, res) => {
     const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const group = createFamily(deviceId, req.body && req.body.name);
@@ -361,7 +418,7 @@ function createApp() {
     res.json(group ? publicView(group, deviceId) : null);
   });
 
-  app.post('/api/family/invite', requireApiKey, (req, res) => {
+  app.post('/api/family/invite', requireApiKey, requireDevice, (req, res) => {
     const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
     const group = getGroupForDevice(deviceId);
     if (!group || group.ownerDeviceId !== deviceId) return res.status(403).json({ error: 'Only the family owner can invite' });
@@ -369,7 +426,7 @@ function createApp() {
     res.json({ ...publicView(updated, deviceId), inviteCode: updated.inviteCode });
   });
 
-  app.post('/api/family/join', requireApiKey, (req, res) => {
+  app.post('/api/family/join', requireApiKey, requireDevice, (req, res) => {
     const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
     const code = req.body && req.body.inviteCode;
     if (!deviceId || !code) return res.status(400).json({ error: 'deviceId and inviteCode are required' });
@@ -381,7 +438,7 @@ function createApp() {
     }
   });
 
-  app.delete('/api/family/member/:deviceId', requireApiKey, (req, res) => {
+  app.delete('/api/family/member/:deviceId', requireApiKey, requireDevice, (req, res) => {
     const owner = req.query.deviceId || (req.body && req.body.deviceId);
     const group = owner && getGroupForDevice(owner);
     if (!group || group.ownerDeviceId !== owner) return res.status(403).json({ error: 'Only the family owner can remove members' });
@@ -389,7 +446,7 @@ function createApp() {
     ok ? res.json(publicView(group, owner)) : res.status(404).json({ error: 'Member not found' });
   });
 
-  app.post('/api/family/leave', requireApiKey, (req, res) => {
+  app.post('/api/family/leave', requireApiKey, requireDevice, (req, res) => {
     const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
     const group = getGroupForDevice(deviceId);
     if (!group || group.ownerDeviceId === deviceId) return res.status(400).json({ error: 'The owner cannot leave; transfer or delete the family instead' });
@@ -408,38 +465,46 @@ function createApp() {
   });
 
   // ─── Tier 1: Secure Vault / Privacy ─────────────────────────────────
+  // Device identity is established by requireDevice (verified JWT in production,
+  // client-supplied fallback only in development). Never trust a raw client
+  // deviceId over the wire in production — the JWT is the source of truth.
   function deviceIdOf(req) {
-    return (req.body && req.body.deviceId) || req.query.deviceId;
+    return req.deviceId || (req.body && req.body.deviceId) || req.query.deviceId;
   }
 
   // Shared item handler factory (vault + decoy share the same shape).
+  // requireApiKey is a no-op in development (REQUIRE_API_KEY !== 'true') but
+  // enforces a server API key in production so these stores cannot be read or
+  // tampered with by anonymous clients. The zero-knowledge design means the
+  // server only ever holds client-encrypted ciphertext; the key protects
+  // availability and metadata, not plaintext confidentiality.
   function mountItemRoutes(base, store) {
-    app.post(`${base}/items`, [body('payload').isString().notEmpty(), body('name').isString().notEmpty()], validate, (req, res) => {
+    app.post(`${base}/items`, requireApiKey, requireDevice, [body('payload').isString().notEmpty(), body('name').isString().notEmpty()], validate, (req, res) => {
       const deviceId = deviceIdOf(req);
       if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
       const item = store.addItem(deviceId, req.body);
       res.status(201).json({ id: item.id, createdAt: item.createdAt });
     });
-    app.get(`${base}/items`, (req, res) => {
+    app.get(`${base}/items`, requireApiKey, requireDevice, (req, res) => {
       const deviceId = deviceIdOf(req);
       if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
       res.json({ items: store.listItems(deviceId) });
     });
-    app.get(`${base}/items/:id`, (req, res) => {
+    app.get(`${base}/items/:id`, requireApiKey, requireDevice, (req, res) => {
       const deviceId = deviceIdOf(req);
       if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
       const item = store.getItem(deviceId, req.params.id);
       if (!item) return res.status(404).json({ error: 'Item not found' });
       res.json(item);
     });
-    app.put(`${base}/items/:id`, (req, res) => {
+    app.put(`${base}/items/:id`, requireApiKey, requireDevice, (req, res) => {
       const deviceId = deviceIdOf(req);
       if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
       const updated = store.updateItem(deviceId, req.params.id, req.body);
       if (!updated) return res.status(404).json({ error: 'Item not found' });
       res.json(updated);
     });
-    app.delete(`${base}/items/:id`, (req, res) => {
+    app.delete(`${base}/items/:id`, requireApiKey, requireDevice, (req, res) => {
       const deviceId = deviceIdOf(req);
       if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
       const ok = store.removeItem(deviceId, req.params.id);
@@ -451,25 +516,25 @@ function createApp() {
   mountItemRoutes('/api/vault', vaultStore);
   mountItemRoutes('/api/vault/decoy', decoyStore);
 
-  app.post('/api/passwords/items', [body('payload').isString().notEmpty(), body('name').isString().notEmpty()], validate, (req, res) => {
+  app.post('/api/passwords/items', requireApiKey, requireDevice, [body('payload').isString().notEmpty(), body('name').isString().notEmpty()], validate, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const entry = passwordStore.addEntry(deviceId, req.body);
     res.status(201).json({ id: entry.id });
   });
-  app.get('/api/passwords/items', (req, res) => {
+  app.get('/api/passwords/items', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     res.json({ items: passwordStore.listEntries(deviceId) });
   });
-  app.get('/api/passwords/items/:id', (req, res) => {
+  app.get('/api/passwords/items/:id', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const entry = passwordStore.getEntry(deviceId, req.params.id);
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     res.json(entry);
   });
-  app.delete('/api/passwords/items/:id', (req, res) => {
+  app.delete('/api/passwords/items/:id', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const ok = passwordStore.removeEntry(deviceId, req.params.id);
@@ -489,19 +554,19 @@ function createApp() {
     res.json({ token: share.token, payload: share.payload, iv: share.iv, name: share.name, mimeType: share.mimeType, viewsRemaining: share.viewsRemaining, expiresAt: share.expiresAt });
   });
 
-  app.post('/api/incidents', [body('type').isIn(['panic', 'duress', 'sos'])], validate, (req, res) => {
+  app.post('/api/incidents', requireApiKey, requireDevice, [body('type').isIn(['panic', 'duress', 'sos'])], validate, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const inc = incidentStore.addIncident(deviceId, req.body);
     res.status(201).json({ id: inc.id, type: inc.type, status: inc.status, createdAt: inc.createdAt });
   });
-  app.get('/api/incidents', (req, res) => {
+  app.get('/api/incidents', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const incidents = incidentStore.listIncidents(deviceId);
     res.json({ count: incidents.length, incidents });
   });
-  app.post('/api/incidents/:id/resolve', (req, res) => {
+  app.post('/api/incidents/:id/resolve', requireApiKey, requireDevice, (req, res) => {
     const inc = incidentStore.resolveIncident(req.params.id, req.body && req.body.resolution);
     if (!inc) return res.status(404).json({ error: 'Incident not found' });
     res.json(inc);
@@ -535,7 +600,7 @@ function createApp() {
     res.json({ score, riskLevel, recommendations, checkedAt: Date.now() });
   });
 
-  app.post('/api/emergency/sos', (req, res) => {
+  app.post('/api/emergency/sos', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const inc = incidentStore.addIncident(deviceId, { type: 'sos', location: req.body && req.body.location, battery: req.body && req.body.battery, note: req.body && req.body.message, metadata: { contacts: req.body && req.body.contacts } });
@@ -546,14 +611,14 @@ function createApp() {
   // The server never stores plaintext secrets or PII. Backups hold only
   // client-encrypted ciphertext; AI reports hold only redacted summaries.
 
-  app.post('/api/backup/export', [body('ciphertext').isString().notEmpty()], validate, (req, res) => {
+  app.post('/api/backup/export', requireApiKey, requireDevice, [body('ciphertext').isString().notEmpty()], validate, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const r = backupStore.exportBackup(deviceId, { ciphertext: req.body.ciphertext, name: req.body.name });
     res.status(201).json({ id: r.id, name: r.name, createdAt: r.createdAt });
   });
 
-  app.get('/api/backup/latest', (req, res) => {
+  app.get('/api/backup/latest', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const b = backupStore.getLatest(deviceId);
@@ -561,14 +626,14 @@ function createApp() {
     res.json(b);
   });
 
-  app.post('/api/device/security-scan', (req, res) => {
+  app.post('/api/device/security-scan', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const { storedAt } = deviceSecurityStore.saveScan(deviceId, { posture: req.body && req.body.posture, details: req.body && req.body.details });
     res.json({ ok: true, storedAt });
   });
 
-  app.get('/api/device/security-scan', (req, res) => {
+  app.get('/api/device/security-scan', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     res.json(deviceSecurityStore.getScan(deviceId));
@@ -595,22 +660,26 @@ function createApp() {
   // ONLY the instruction + target deviceId. No plaintext secrets or PII.
 
   // (18) End-to-end multi-device messaging (simplified shared-key model)
-  app.post('/api/sync/push', [body('ciphertext').isString().notEmpty(), body('channel').isString().notEmpty()], validate, (req, res) => {
+  app.post('/api/sync/push', requireApiKey, requireDevice, [body('ciphertext').isString().notEmpty(), body('channel').isString().notEmpty()], validate, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const r = syncStore.push(deviceId, { channel: req.body.channel, ciphertext: req.body.ciphertext, kind: req.body.kind });
     res.status(201).json({ id: r.id, updatedAt: r.updatedAt });
   });
 
-  app.get('/api/sync/pull', (req, res) => {
+  // Pulling requires both the channel (the shared secret between participants)
+  // and a deviceId (for attribution/rate scoping). requireApiKey enforces the
+  // server key in production so the relay cannot be scraped anonymously.
+  app.get('/api/sync/pull', requireApiKey, (req, res) => {
     const { deviceId, channel, since } = req.query;
     if (!channel) return res.status(400).json({ error: 'channel is required' });
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const items = syncStore.pull(channel, Number(since) || 0);
     res.json({ items });
   });
 
   // (21) Remote device management + best-effort remote vault wipe
-  app.post('/api/device/command', (req, res) => {
+  app.post('/api/device/command', requireApiKey, requireDevice, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     if (!req.body || !req.body.targetDeviceId || !req.body.type) {
@@ -624,13 +693,13 @@ function createApp() {
     }
   });
 
-  app.get('/api/device/commands', (req, res) => {
-    const deviceId = req.query.deviceId;
+  app.get('/api/device/commands', requireApiKey, requireDevice, (req, res) => {
+    const deviceId = deviceIdOf(req) || req.query.deviceId;
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     res.json({ commands: commandStore.pendingFor(deviceId) });
   });
 
-  app.post('/api/device/command/:id/ack', (req, res) => {
+  app.post('/api/device/command/:id/ack', requireApiKey, requireDevice, (req, res) => {
     const deviceId = (req.body && req.body.deviceId) || req.query.deviceId;
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const c = commandStore.ack(req.params.id, deviceId);
@@ -639,15 +708,15 @@ function createApp() {
   });
 
   // (23) Audit logs (redacted — type + deviceId + timestamp only)
-  app.post('/api/audit', [body('type').isString().notEmpty()], validate, (req, res) => {
+  app.post('/api/audit', requireApiKey, requireDevice, [body('type').isString().notEmpty()], validate, (req, res) => {
     const deviceId = deviceIdOf(req);
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     const e = auditStore.append(deviceId, req.body.type);
     res.status(201).json({ id: e.id, at: e.at });
   });
 
-  app.get('/api/audit', (req, res) => {
-    const deviceId = req.query.deviceId;
+  app.get('/api/audit', requireApiKey, requireDevice, (req, res) => {
+    const deviceId = deviceIdOf(req) || req.query.deviceId;
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
     res.json({ events: auditStore.list(deviceId) });
   });

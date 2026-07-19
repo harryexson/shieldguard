@@ -249,32 +249,8 @@ export const anonymizeApi = {
 };
 
 // ─── Subscription / Entitlements API ────────────────────────────────
-export interface FeatureDef {
-  id: string;
-  name: string;
-  description: string;
-  tier: 'free' | 'standard' | 'premium';
-  deliveredBy: 'backend' | 'mobile' | 'mobile+backend' | 'human';
-}
-
-export interface Entitlements {
-  deviceId: string;
-  tier: 'free' | 'standard' | 'premium';
-  subscriptionId: string | null;
-  status: 'active' | 'none' | 'canceled' | 'past_due';
-  renewsAt: number | null;
-  plan: string | null;
-  features: string[];
-}
-
-export interface PlanDef {
-  id: string;
-  name: string;
-  priceMonthly: number;
-  currency: string;
-  features: string[];
-  highlighted?: boolean;
-}
+// These types are the shared contract, imported from the single source of truth.
+export type { FeatureDef, Entitlements, PlanDef, Tier } from '@shieldguard/shared';
 
 export interface CheckoutResult {
   url: string;

@@ -3,12 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { COLORS } from '../constants';
 import { useSubscription } from '../context/SubscriptionContext';
 import { FeatureDef, PlanDef } from '../services/api';
-
-const TIER_LABEL: Record<string, string> = {
-  free: 'Free',
-  standard: 'Standard',
-  premium: 'Premium',
-};
+import { TIER_LABELS } from '@shieldguard/shared';
 
 // Inline paywall shown when a feature is locked. Lists the available plans
 // and lets the user start a Stripe Checkout session.
@@ -25,7 +20,7 @@ export function Paywall({ feature }: { feature?: FeatureDef }) {
       </Text>
       <Text style={styles.sub}>
         {feature
-          ? `Requires the ${TIER_LABEL[feature.tier]} plan or higher.`
+          ? `Requires the ${TIER_LABELS[feature.tier]} plan or higher.`
           : 'Choose a plan to activate advanced protection.'}
       </Text>
 

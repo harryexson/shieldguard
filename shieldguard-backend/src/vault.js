@@ -1,200 +1,173 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+// SQLite-backed vault / decoy / password / share / incident stores.
+// Replaces the previous JSON-file store (race-prone, last-writer-wins).
+// The exported object shapes (vaultStore, decoyStore, passwordStore,
+// shareStore, incidentStore) and method names are unchanged so callers and
+// tests keep working. The *PATH constants are retained only for backward
+// compatibility (the tests unlink them in beforeAll — a no-op now).
+
 const crypto = require('crypto');
+const { getDb } = require('./db');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const VAULT_PATH = path.join(DATA_DIR, 'vault.json');
-const DECOY_PATH = path.join(DATA_DIR, 'decoy.json');
-const PASSWORDS_PATH = path.join(DATA_DIR, 'passwords.json');
-const SHARE_PATH = path.join(DATA_DIR, 'share.json');
-const INCIDENTS_PATH = path.join(DATA_DIR, 'incidents.json');
-
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-function load(p) {
-  ensureDir();
-  try {
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf-8'));
-  } catch (_) {
-    /* corrupted — start fresh */
-  }
-  return { items: {} };
-}
-function save(p, db) {
-  ensureDir();
-  fs.writeFileSync(p, JSON.stringify(db, null, 2), 'utf-8');
-}
+const DATA_DIR = require('path').join(__dirname, '..', 'data');
+const VAULT_PATH = require('path').join(DATA_DIR, 'vault.json');
+const DECOY_PATH = require('path').join(DATA_DIR, 'decoy.json');
+const PASSWORDS_PATH = require('path').join(DATA_DIR, 'passwords.json');
+const SHARE_PATH = require('path').join(DATA_DIR, 'share.json');
+const INCIDENTS_PATH = require('path').join(DATA_DIR, 'incidents.json');
 
 function genId(prefix) { return prefix + crypto.randomBytes(6).toString('hex'); }
 
-// ─── Vault & Decoy stores ────────────────────────────────────────────
-function buildItemStore(filePath) {
+// ─── Vault & Decoy stores (same table, separated by `store` column) ──────
+function buildItemStore(store) {
   return {
     addItem(deviceId, item) {
-      const db = load(filePath);
+      const db = getDb();
       const id = genId('vlt_');
       const now = Date.now();
-      const record = {
-        id,
-        deviceId,
-        folder: item.folder || 'General',
-        name: item.name || 'Untitled',
-        mimeType: item.mimeType || 'application/octet-stream',
-        kind: item.kind || 'file',
-        favorite: Boolean(item.favorite),
-        payload: item.payload,
-        createdAt: now,
-        updatedAt: now,
-      };
-      db.items[id] = record;
-      save(filePath, db);
-      return record;
+      db.prepare(
+        `INSERT INTO vault_items (id, store, device_id, folder, name, mime_type, kind, favorite, payload, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        id, store, deviceId,
+        item.folder || 'General',
+        item.name || 'Untitled',
+        item.mimeType || 'application/octet-stream',
+        item.kind || 'file',
+        item.favorite ? 1 : 0,
+        item.payload,
+        now, now
+      );
+      return { id, deviceId, createdAt: now, updatedAt: now };
     },
     listItems(deviceId) {
-      const db = load(filePath);
-      return Object.values(db.items)
-        .filter((i) => i.deviceId === deviceId)
-        .map(({ id, deviceId: d, folder, name, mimeType, kind, favorite, createdAt, updatedAt }) =>
-          ({ id, deviceId: d, folder, name, mimeType, kind, favorite, createdAt, updatedAt }));
+      const db = getDb();
+      const rows = db.prepare(
+        `SELECT id, device_id, folder, name, mime_type, kind, favorite, created_at, updated_at
+         FROM vault_items WHERE device_id = ? AND store = ? ORDER BY created_at DESC`
+      ).all(deviceId, store);
+      return rows.map((r) => ({
+        id: r.id, deviceId: r.device_id, folder: r.folder, name: r.name,
+        mimeType: r.mime_type, kind: r.kind, favorite: !!r.favorite,
+        createdAt: r.created_at, updatedAt: r.updated_at,
+      }));
     },
     getItem(deviceId, id) {
-      const db = load(filePath);
-      const item = db.items[id];
-      if (!item || item.deviceId !== deviceId) return null;
-      return item;
+      const db = getDb();
+      const r = db.prepare('SELECT * FROM vault_items WHERE id = ? AND device_id = ? AND store = ?').get(id, deviceId, store);
+      return r ? { ...r, favorite: !!r.favorite } : null;
     },
     updateItem(deviceId, id, patch) {
-      const db = load(filePath);
-      const item = db.items[id];
-      if (!item || item.deviceId !== deviceId) return null;
-      const fields = ['folder', 'name', 'mimeType', 'kind', 'favorite', 'payload'];
+      const db = getDb();
+      const existing = db.prepare('SELECT * FROM vault_items WHERE id = ? AND device_id = ? AND store = ?').get(id, deviceId, store);
+      if (!existing) return null;
+      const fields = ['folder', 'name', 'mime_type', 'kind', 'favorite', 'payload'];
       for (const f of fields) {
-        if (f in patch) item[f] = f === 'favorite' ? Boolean(patch[f]) : patch[f];
+        if (f in patch) existing[f === 'favorite' ? 'favorite' : f] = f === 'favorite' ? (patch[f] ? 1 : 0) : patch[f];
       }
-      item.updatedAt = Date.now();
-      db.items[id] = item;
-      save(filePath, db);
+      existing.updated_at = Date.now();
+      db.prepare(
+        `UPDATE vault_items SET folder=?, name=?, mime_type=?, kind=?, favorite=?, payload=?, updated_at=?
+         WHERE id=? AND device_id=? AND store=?`
+      ).run(
+        existing.folder, existing.name, existing.mime_type, existing.kind,
+        existing.favorite ? 1 : 0, existing.payload, existing.updated_at, id, deviceId, store
+      );
       return {
-        id: item.id,
-        deviceId: item.deviceId,
-        folder: item.folder,
-        name: item.name,
-        mimeType: item.mimeType,
-        kind: item.kind,
-        favorite: item.favorite,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
+        id: existing.id, deviceId: existing.device_id, folder: existing.folder, name: existing.name,
+        mimeType: existing.mime_type, kind: existing.kind, favorite: !!existing.favorite,
+        createdAt: existing.created_at, updatedAt: existing.updated_at,
       };
     },
     removeItem(deviceId, id) {
-      const db = load(filePath);
-      const item = db.items[id];
-      if (!item || item.deviceId !== deviceId) return false;
-      delete db.items[id];
-      save(filePath, db);
-      return true;
+      const db = getDb();
+      const res = db.prepare('DELETE FROM vault_items WHERE id = ? AND device_id = ? AND store = ?').run(id, deviceId, store);
+      return res.changes > 0;
     },
   };
 }
 
-const vaultStore = buildItemStore(VAULT_PATH);
-const decoyStore = buildItemStore(DECOY_PATH);
+const vaultStore = buildItemStore('real');
+const decoyStore = buildItemStore('decoy');
 
 // ─── Password store ──────────────────────────────────────────────────
 const passwordStore = {
   addEntry(deviceId, entry) {
-    const db = load(PASSWORDS_PATH);
+    const db = getDb();
     const id = genId('pwd_');
-    const record = {
-      id,
-      deviceId,
-      name: entry.name || 'Unnamed',
-      username: entry.username || null,
-      siteUrl: entry.siteUrl || null,
-      strength: typeof entry.strength === 'number' ? entry.strength : null,
-      payload: entry.payload,
-      createdAt: Date.now(),
-    };
-    db.items[id] = record;
-    save(PASSWORDS_PATH, db);
-    return record;
+    const now = Date.now();
+    db.prepare(
+      `INSERT INTO passwords (id, device_id, name, username, site_url, strength, payload, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id, deviceId, entry.name || 'Unnamed', entry.username || null, entry.siteUrl || null,
+      typeof entry.strength === 'number' ? entry.strength : null, entry.payload, now
+    );
+    return { id, createdAt: now };
   },
   listEntries(deviceId) {
-    const db = load(PASSWORDS_PATH);
-    return Object.values(db.items)
-      .filter((e) => e.deviceId === deviceId)
-      .map(({ id, deviceId: d, name, username, siteUrl, strength, createdAt }) =>
-        ({ id, deviceId: d, name, username, siteUrl, strength, createdAt }));
+    const db = getDb();
+    const rows = db.prepare(
+      'SELECT id, device_id, name, username, site_url, strength, created_at FROM passwords WHERE device_id = ? ORDER BY created_at DESC'
+    ).all(deviceId);
+    return rows.map((r) => ({
+      id: r.id, deviceId: r.device_id, name: r.name, username: r.username,
+      siteUrl: r.site_url, strength: r.strength, createdAt: r.created_at,
+    }));
   },
   getEntry(deviceId, id) {
-    const db = load(PASSWORDS_PATH);
-    const entry = db.items[id];
-    if (!entry || entry.deviceId !== deviceId) return null;
-    return entry;
+    const db = getDb();
+    const r = db.prepare('SELECT * FROM passwords WHERE id = ? AND device_id = ?').get(id, deviceId);
+    return r ? { ...r } : null;
   },
   removeEntry(deviceId, id) {
-    const db = load(PASSWORDS_PATH);
-    const entry = db.items[id];
-    if (!entry || entry.deviceId !== deviceId) return false;
-    delete db.items[id];
-    save(PASSWORDS_PATH, db);
-    return true;
+    const db = getDb();
+    const res = db.prepare('DELETE FROM passwords WHERE id = ? AND device_id = ?').run(id, deviceId);
+    return res.changes > 0;
   },
 };
 
 // ─── Share store (token-scoped, not device-scoped) ───────────────────
 const shareStore = {
   createShare({ payload, iv, name, mimeType, maxViews = 1, ttlSeconds = 86400 } = {}) {
-    const db = load(SHARE_PATH);
+    const db = getDb();
     const token = 'sh_' + crypto.randomBytes(16).toString('hex');
     const now = Date.now();
-    const record = {
-      token,
-      payload,
-      iv: iv || null,
-      name: name || null,
-      mimeType: mimeType || 'application/octet-stream',
-      maxViews,
-      viewsRemaining: maxViews,
-      expiresAt: now + ttlSeconds * 1000,
-      createdAt: now,
-    };
-    db.items[token] = record;
-    save(SHARE_PATH, db);
-    return record;
+    db.prepare(
+      `INSERT INTO shares (token, payload, iv, name, mime_type, max_views, views_remaining, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(token, payload, iv || null, name || null, mimeType || 'application/octet-stream', maxViews, maxViews, now + ttlSeconds * 1000, now);
+    return { token, payload, iv, name, mimeType, maxViews, viewsRemaining: maxViews, expiresAt: now + ttlSeconds * 1000, createdAt: now };
   },
   getShare(token) {
-    const db = load(SHARE_PATH);
-    const rec = db.items[token];
+    const db = getDb();
+    const rec = db.prepare('SELECT * FROM shares WHERE token = ?').get(token);
     if (!rec) return null;
     const now = Date.now();
-    if (now > rec.expiresAt || rec.viewsRemaining <= 0) {
-      delete db.items[token];
-      save(SHARE_PATH, db);
+    if (now > rec.expires_at || rec.views_remaining <= 0) {
+      db.prepare('DELETE FROM shares WHERE token = ?').run(token);
       return null;
     }
-    rec.viewsRemaining -= 1;
-    const result = { ...rec };
-    if (rec.viewsRemaining <= 0) delete db.items[token];
-    else db.items[token] = rec;
-    save(SHARE_PATH, db);
-    return result;
+    rec.views_remaining -= 1;
+    const row = { ...rec };
+    if (row.views_remaining <= 0) db.prepare('DELETE FROM shares WHERE token = ?').run(token);
+    else db.prepare('UPDATE shares SET views_remaining = ? WHERE token = ?').run(row.views_remaining, token);
+    return {
+      token: row.token,
+      payload: row.payload,
+      iv: row.iv,
+      name: row.name,
+      mimeType: row.mime_type,
+      maxViews: row.max_views,
+      viewsRemaining: row.views_remaining,
+      expiresAt: row.expires_at,
+      createdAt: row.created_at,
+    };
   },
   purgeExpired() {
-    const db = load(SHARE_PATH);
-    const now = Date.now();
-    let changed = false;
-    for (const token of Object.keys(db.items)) {
-      const rec = db.items[token];
-      if (now > rec.expiresAt || rec.viewsRemaining <= 0) {
-        delete db.items[token];
-        changed = true;
-      }
-    }
-    if (changed) save(SHARE_PATH, db);
+    const db = getDb();
+    db.prepare('DELETE FROM shares WHERE expires_at <= ? OR views_remaining <= 0').run(Date.now());
   },
 };
 
@@ -202,47 +175,53 @@ const shareStore = {
 const VALID_TYPES = ['panic', 'duress', 'sos'];
 const incidentStore = {
   addIncident(deviceId, { type, location, battery, note, metadata } = {}) {
-    const db = load(INCIDENTS_PATH);
+    const db = getDb();
     if (!VALID_TYPES.includes(type)) {
       const e = new Error('Invalid incident type'); e.status = 400; throw e;
     }
     const id = genId('inc_');
-    const record = {
-      id,
-      deviceId,
-      type,
-      location: location || null,
-      battery: typeof battery === 'number' ? battery : null,
-      note: note || null,
-      metadata: metadata || null,
-      status: 'open',
-      createdAt: Date.now(),
-      resolvedAt: null,
-    };
-    db.items[id] = record;
-    save(INCIDENTS_PATH, db);
-    return record;
+    const now = Date.now();
+    db.prepare(
+      `INSERT INTO incidents (id, device_id, type, location, battery, note, metadata, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)`
+    ).run(id, deviceId, type,
+      location ? JSON.stringify(location) : null,
+      typeof battery === 'number' ? battery : null,
+      note || null,
+      metadata ? JSON.stringify(metadata) : null,
+      now);
+    return { id, type, status: 'open', createdAt: now };
   },
   listIncidents(deviceId) {
-    const db = load(INCIDENTS_PATH);
-    return Object.values(db.items).filter((i) => i.deviceId === deviceId);
+    const db = getDb();
+    const rows = db.prepare('SELECT * FROM incidents WHERE device_id = ? ORDER BY created_at DESC').all(deviceId);
+    return rows.map(normalizeIncident);
   },
   resolveIncident(id, resolution) {
-    const db = load(INCIDENTS_PATH);
-    const inc = db.items[id];
+    const db = getDb();
+    const inc = db.prepare('SELECT * FROM incidents WHERE id = ?').get(id);
     if (!inc) return null;
-    inc.status = 'resolved';
-    inc.resolution = resolution || null;
-    inc.resolvedAt = Date.now();
-    db.items[id] = inc;
-    save(INCIDENTS_PATH, db);
-    return inc;
+    db.prepare("UPDATE incidents SET status='resolved', resolution=?, resolved_at=? WHERE id=?")
+      .run(resolution || null, Date.now(), id);
+    return normalizeIncident(db.prepare('SELECT * FROM incidents WHERE id = ?').get(id));
   },
   listAll() {
-    const db = load(INCIDENTS_PATH);
-    return Object.values(db.items);
+    const db = getDb();
+    return db.prepare('SELECT * FROM incidents ORDER BY created_at DESC').all().map(normalizeIncident);
   },
 };
+
+function normalizeIncident(r) {
+  if (!r) return r;
+  return {
+    id: r.id, deviceId: r.device_id, type: r.type,
+    location: r.location ? safeJson(r.location) : null,
+    battery: r.battery, note: r.note,
+    metadata: r.metadata ? safeJson(r.metadata) : null,
+    status: r.status, createdAt: r.created_at, resolvedAt: r.resolved_at, resolution: r.resolution,
+  };
+}
+function safeJson(s) { try { return JSON.parse(s); } catch { return s; } }
 
 module.exports = {
   vaultStore,

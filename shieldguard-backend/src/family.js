@@ -1,30 +1,16 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+// SQLite-backed family/circle groups. Replaces the JSON file store. Keeps the
+// exact exported API used elsewhere (createFamily, getGroup, getGroupForDevice,
+// getGroupByCode, inviteMember, joinFamily, removeMember, leaveFamily,
+// listAllGroups, publicView, deviceCount).
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FAMILY_PATH = path.join(DATA_DIR, 'family.json');
+const crypto = require('crypto');
+const { getDb } = require('./db');
+
+const FAMILY_PATH = require('path').join(__dirname, '..', 'data', 'family.json');
 
 const DEFAULT_DEVICE_LIMIT = 5; // owner + up to 4 members
-
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-function load() {
-  ensureDir();
-  try {
-    if (fs.existsSync(FAMILY_PATH)) return JSON.parse(fs.readFileSync(FAMILY_PATH, 'utf-8'));
-  } catch (_) {
-    /* corrupted — start fresh */
-  }
-  return { groups: {} };
-}
-function save(db) {
-  ensureDir();
-  fs.writeFileSync(FAMILY_PATH, JSON.stringify(db, null, 2), 'utf-8');
-}
 
 function genId() { return 'fam_' + crypto.randomBytes(6).toString('hex'); }
 function genCode() {
@@ -35,57 +21,74 @@ function genCode() {
   return out;
 }
 
-function createFamily(ownerDeviceId, name) {
-  const db = load();
-  // An owner can only own one family.
-  const existing = Object.values(db.groups).find((g) => g.ownerDeviceId === ownerDeviceId);
-  if (existing) return existing;
-  const id = genId();
-  const group = {
-    id,
-    name: name || 'My Family',
-    ownerDeviceId,
-    inviteCode: genCode(),
-    deviceLimit: DEFAULT_DEVICE_LIMIT,
-    createdAt: Date.now(),
-    members: [], // pending + active; owner tracked via ownerDeviceId
+function rowToGroup(g, members) {
+  return {
+    id: g.id, name: g.name, ownerDeviceId: g.owner_device_id,
+    inviteCode: g.invite_code, deviceLimit: g.device_limit,
+    createdAt: g.created_at, members: members || [],
   };
-  db.groups[id] = group;
-  save(db);
-  return group;
+}
+
+function loadMembers(groupId) {
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM family_members WHERE group_id = ?').all(groupId);
+  return rows.map((m) => ({
+    deviceId: m.device_id, name: m.name, email: m.email, phone: m.phone,
+    status: m.status, invitedAt: m.invited_at, joinedAt: m.joined_at,
+  }));
+}
+
+function createFamily(ownerDeviceId, name) {
+  const db = getDb();
+  const existing = db.prepare('SELECT * FROM families WHERE owner_device_id = ?').get(ownerDeviceId);
+  if (existing) return rowToGroup(existing, loadMembers(existing.id));
+  const id = genId();
+  db.prepare(
+    'INSERT INTO families (id, name, owner_device_id, invite_code, device_limit, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(id, name || 'My Family', ownerDeviceId, genCode(), DEFAULT_DEVICE_LIMIT, Date.now());
+  return rowToGroup(db.prepare('SELECT * FROM families WHERE id = ?').get(id), []);
 }
 
 function getGroup(id) {
-  return load().groups[id] || null;
+  const db = getDb();
+  const g = db.prepare('SELECT * FROM families WHERE id = ?').get(id);
+  if (!g) return null;
+  return rowToGroup(g, loadMembers(id));
 }
 
 function getGroupByCode(code) {
+  const db = getDb();
   const c = String(code || '').toUpperCase();
-  return Object.values(load().groups).find((g) => g.inviteCode.toUpperCase() === c) || null;
+  const groups = db.prepare('SELECT * FROM families').all();
+  const g = groups.find((x) => x.invite_code.toUpperCase() === c);
+  if (!g) return null;
+  return rowToGroup(g, loadMembers(g.id));
 }
 
-// Returns the family group a device belongs to (as owner or active member), or null.
 function getGroupForDevice(deviceId) {
-  const groups = Object.values(load().groups);
-  return groups.find((g) => {
-    if (g.ownerDeviceId === deviceId) return true;
-    return g.members.some((m) => m.deviceId === deviceId && m.status === 'active');
-  }) || null;
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM families').all();
+  for (const g of rows) {
+    if (g.owner_device_id === deviceId) return rowToGroup(g, loadMembers(g.id));
+    const member = db.prepare('SELECT * FROM family_members WHERE group_id = ? AND device_id = ? AND status = ?')
+      .get(g.id, deviceId, 'active');
+    if (member) return rowToGroup(g, loadMembers(g.id));
+  }
+  return null;
 }
 
-// Count devices currently consuming the plan (owner + active members).
 function deviceCount(group) {
   return 1 + group.members.filter((m) => m.status === 'active').length;
 }
 
 function inviteMember(groupId, { name, email, phone } = {}) {
-  const db = load();
-  const g = db.groups[groupId];
+  const db = getDb();
+  const g = db.prepare('SELECT * FROM families WHERE id = ?').get(groupId);
   if (!g) return null;
-  // Invites are pending until the member joins with their device.
-  g.members.push({ deviceId: null, name: name || 'Invited member', email: email || null, phone: phone || null, status: 'pending', invitedAt: Date.now() });
-  save(db);
-  return g;
+  db.prepare(
+    "INSERT INTO family_members (id, group_id, device_id, name, email, phone, status, invited_at) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)"
+  ).run('mem_' + crypto.randomBytes(6).toString('hex'), groupId, null, name || 'Invited member', email || null, phone || null, Date.now());
+  return getGroup(groupId);
 }
 
 function joinFamily(code, deviceId, name) {
@@ -93,42 +96,36 @@ function joinFamily(code, deviceId, name) {
   if (!g) { const e = new Error('Invalid or expired invite code'); e.status = 404; throw e; }
   if (deviceCount(g) >= g.deviceLimit) { const e = new Error('Family plan device limit reached'); e.status = 409; throw e; }
   if (g.ownerDeviceId === deviceId) return g; // owner already covered
-  const db = load();
-  const grp = db.groups[g.id];
-  const existing = grp.members.find((m) => m.deviceId === deviceId);
-  if (existing) { existing.status = 'active'; existing.name = name || existing.name; existing.joinedAt = Date.now(); }
-  else grp.members.push({ deviceId, name: name || 'Member', email: null, phone: null, status: 'active', joinedAt: Date.now() });
-  save(db);
-  return grp;
+  const db = getDb();
+  const existing = db.prepare('SELECT * FROM family_members WHERE group_id = ? AND device_id = ?').get(g.id, deviceId);
+  if (existing) {
+    db.prepare("UPDATE family_members SET status = 'active', name = ?, joined_at = ?, invited_at = ? WHERE id = ?")
+      .run(name || existing.name, Date.now(), existing.invited_at, existing.id);
+  } else {
+    db.prepare(
+      "INSERT INTO family_members (id, group_id, device_id, name, email, phone, status, joined_at) VALUES (?, ?, ?, ?, NULL, NULL, 'active', ?)"
+    ).run('mem_' + crypto.randomBytes(6).toString('hex'), g.id, deviceId, name || 'Member', Date.now());
+  }
+  return getGroup(g.id);
 }
 
 function removeMember(groupId, memberDeviceId) {
-  const db = load();
-  const g = db.groups[groupId];
-  if (!g) return false;
-  const i = g.members.findIndex((m) => m.deviceId === memberDeviceId);
-  if (i === -1) return false;
-  g.members.splice(i, 1);
-  save(db);
-  return true;
+  const db = getDb();
+  const res = db.prepare('DELETE FROM family_members WHERE group_id = ? AND device_id = ?').run(groupId, memberDeviceId);
+  return res.changes > 0;
 }
 
 function leaveFamily(groupId, deviceId) {
-  const db = load();
-  const g = db.groups[groupId];
-  if (!g) return false;
-  const i = g.members.findIndex((m) => m.deviceId === deviceId && m.status === 'active');
-  if (i === -1) return false;
-  g.members.splice(i, 1);
-  save(db);
-  return true;
+  const db = getDb();
+  const res = db.prepare("DELETE FROM family_members WHERE group_id = ? AND device_id = ? AND status = 'active'").run(groupId, deviceId);
+  return res.changes > 0;
 }
 
 function listAllGroups() {
-  return Object.values(load().groups);
+  const db = getDb();
+  return db.prepare('SELECT * FROM families').all().map((g) => rowToGroup(g, loadMembers(g.id)));
 }
 
-// Normalize a group into a safe, role-aware view for a given device.
 function publicView(group, deviceId) {
   if (!group) return null;
   const role = group.ownerDeviceId === deviceId ? 'owner' : 'member';
@@ -146,7 +143,6 @@ function publicView(group, deviceId) {
       status: m.status,
       isOwner: false,
       isYou: m.deviceId === deviceId,
-      // The owner manages members, so they need each member's deviceId to remove it.
       deviceId: role === 'owner' ? m.deviceId : undefined,
     })),
   };
@@ -165,4 +161,5 @@ module.exports = {
   leaveFamily,
   listAllGroups,
   publicView,
+  FAMILY_PATH,
 };

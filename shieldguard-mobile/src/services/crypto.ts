@@ -13,12 +13,23 @@ export async function hashPin(pin: string): Promise<string> {
 // ─── AES encryption/decryption for the vault ─────────────────────────────
 // Key is derived from the PIN + a random per-entry salt using PBKDF2, then
 // used by crypto-js AES. Ciphertext is base64 of salt + iv + ciphertext.
-const PBKDF2_ITERATIONS = 10000;
+//
+// SECURITY NOTE: crypto-js only implements AES-CBC/-CFB/-CTR/-OFB — it does
+// NOT support AES-GCM. CBC provides confidentiality but NOT authenticated
+// encryption, so ciphertext can be tampered with undetected. This is a known
+// gap: a production build should migrate to a native AES-256-GCM module
+// (e.g. react-native-aes-gcm or WebCrypto via expo) for authenticated
+// encryption. Until then we at least use a strong KDF: PBKDF2-HMAC-SHA256
+// (crypto-js defaults to SHA-1, which this audit rejects) at a high iteration
+// count.
+const PBKDF2_ITERATIONS = 250000;
+const PBKDF2_HASHER = CryptoJS.algo.SHA256;
 
 function deriveKey(pin: string, salt: string): CryptoJS.lib.WordArray {
   return CryptoJS.PBKDF2(pin, CryptoJS.enc.Utf8.parse(salt), {
     keySize: 256 / 32,
     iterations: PBKDF2_ITERATIONS,
+    hasher: PBKDF2_HASHER,
   });
 }
 

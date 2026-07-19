@@ -1,23 +1,7 @@
-export const COLORS = {
-  primary: '#0A1628',
-  secondary: '#162447',
-  accent: '#1F4068',
-  safe: '#00D9A5',
-  warning: '#FFB800',
-  danger: '#FF4757',
-  text: '#FFFFFF',
-  textSecondary: '#B0B0B0',
-  card: '#1F2937',
-  border: '#374151',
-  tabBar: '#0D1B2A',
-};
-
-export const THREAT_LEVELS = {
-  safe: '#00D9A5',
-  warning: '#FFB800',
-  danger: '#FF4757',
-  critical: '#FF4757',
-};
+// Brand colors now come from the shared single source of truth so a rebrand
+// propagates to mobile, office and the landing page.
+import { COLORS, THREAT_LEVELS, BRAND } from '@shieldguard/shared';
+export { COLORS, THREAT_LEVELS, BRAND };
 
 // Points at the ShieldGuard backend. The backend runs on PORT 3000 locally.
 // Change this single value to point the app at a LAN IP or hosted URL, e.g.

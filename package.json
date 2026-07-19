@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm --prefix shieldguard-office run dev",
+    "dev": "node dev-all.js",
+    "dev:all": "node dev-all.js",
     "dev:office": "npm --prefix shieldguard-office run dev",
     "dev:mobile": "npm --prefix shieldguard-mobile run start",
-    "dev:backend": "npm --prefix shieldguard-backend run start"
+    "dev:backend": "npm --prefix shieldguard-backend run start",
+    "dev:landing": "npx --yes serve landing_page",
+    "setup": "node scripts/link-shared.js"
   }
 }

@@ -8,9 +8,8 @@ import {
   PlanDef,
   FamilyView,
 } from '../services/api';
+import { Tier, TIER_RANK } from '@shieldguard/shared';
 import { getDeviceId } from '../services/device';
-
-type Tier = 'free' | 'standard' | 'premium';
 
 interface SubscriptionContextType {
   loading: boolean;
@@ -30,8 +29,6 @@ interface SubscriptionContextType {
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
-
-const TIER_RANK: Record<Tier, number> = { free: 0, standard: 1, premium: 2 };
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);

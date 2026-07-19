@@ -1,5 +1,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
+import type { FeatureDef, PlanDef, Entitlements } from '@shieldguard/shared';
+
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 
 class ApiClient {
@@ -156,11 +158,11 @@ export const officeApi = {
   stats: () => api.get<Stats>('/stats'),
   threatsFeed: () => api.get<ThreatFeedItem[]>('/threats/feed'),
   threats: (limit = 20, offset = 0) => api.get<any[]>(`/threats?limit=${limit}&offset=${offset}`),
-  features: () => api.get<any[]>('/features'),
+  features: () => api.get<FeatureDef[]>('/features'),
   alerts: () => api.get<any[]>('/alerts'),
   markAlertRead: (id: string) => api.patch(`/alerts/${id}/read`),
-  me: (deviceId?: string) => api.get<{ tier: string; plan: string; features: string[] }>(`/me${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`),
-  billingPlans: () => api.get<any[]>('/billing/plans'),
+  me: (deviceId?: string) => api.get<Entitlements>(`/me${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`),
+  billingPlans: () => api.get<PlanDef[]>('/billing/plans'),
   getFamilies: () => api.get<FamilyAdminResponse>('/family/admin'),
   getFamiliesAdmin: () => api.get<FamilyAdminResponse>('/family/admin'),
   adminDeviceCommand: (targetDeviceId: string, type: AdminDeviceCommandType, payload?: any) =>

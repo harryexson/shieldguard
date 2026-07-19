@@ -29,6 +29,17 @@ ShieldGuard is engineered specifically to counter these advanced persistent surv
 ## Project Structure
 
 ```
+├── shared/                 # 🧩 Single source of truth for the WHOLE platform.
+│                            #    tiers.js  — subscription tiers (free/standard/premium/family)
+│                            #    features.js — canonical feature catalogue + helpers
+│                            #    rbac.js   — roles, permission matrix, sidebar config
+│                            #    brand.js  — brand name, palette, fonts
+│                            #    api.js    — canonical API endpoint paths + shared contracts
+│                            #    index.d.ts — shared TypeScript types (Tier, FeatureDef,
+│                            #                 Entitlements, PlanDef, Role, FamilyView…)
+│                            # Every app imports from @shieldguard/shared so a change here
+│                            # propagates to the backend, mobile, office and landing page.
+│
 ├── shieldguard-office/     # Next.js Back Office web app (CRM, Support, Billing, etc.)
 │   ├── src/
 │   │   ├── app/           # 17 route pages (dashboard, CRM, support, billing, etc.)
@@ -172,6 +183,25 @@ honest accounting is in [AUDIT_AND_GAPS.md](./AUDIT_AND_GAPS.md).
 | POST | /api/ai/emergency-assist | Emergency guidance (rule-based or optional LLM) |
 
 ## Running the Application
+
+### Run the whole platform (recommended)
+
+From the repo root, a single command boots the backend, the office app and the
+landing page together (ports: backend `3000`, office `3001`, landing `5173`):
+
+```bash
+npm run dev          # or: npm run dev:all
+```
+
+The mobile app needs a device/emulator, so run it separately:
+
+```bash
+npm run dev:mobile
+```
+
+All four apps share the same definitions via `@shieldguard/shared` (see
+`shared/` above), so adding a tier, feature or role in one place updates the
+whole system.
 
 ### 1. Start the Backend API Server
 ```bash

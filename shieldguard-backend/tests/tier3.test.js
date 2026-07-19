@@ -28,21 +28,23 @@ describe('Tier 3: Privacy / Security backend', () => {
     expect(push.status).toBe(201);
     expect(push.body.id).toBeDefined();
 
-    const pull = await request(app).get('/api/sync/pull').query({ channel: 'c1' });
+    const pull = await request(app).get('/api/sync/pull').query({ channel: 'c1', deviceId: owner });
     expect(pull.status).toBe(200);
     expect(pull.body.items.length).toBe(1);
     expect(pull.body.items[0].ciphertext).toBe(ct);
 
-    const other = await request(app).get('/api/sync/pull').query({ channel: 'c2' });
+    const other = await request(app).get('/api/sync/pull').query({ channel: 'c2', deviceId: owner });
     expect(other.body.items.length).toBe(0);
 
-    const since = await request(app).get('/api/sync/pull').query({ channel: 'c1', since: Date.now() + 1000 });
+    const since = await request(app).get('/api/sync/pull').query({ channel: 'c1', deviceId: owner, since: Date.now() + 1000 });
     expect(since.body.items.length).toBe(0);
   });
 
-  it('sync: pull requires channel', async () => {
-    const res = await request(app).get('/api/sync/pull');
-    expect(res.status).toBe(400);
+  it('sync: pull requires channel and deviceId', async () => {
+    const noChannel = await request(app).get('/api/sync/pull').query({ deviceId: owner });
+    expect(noChannel.status).toBe(400);
+    const noDevice = await request(app).get('/api/sync/pull').query({ channel: 'c1' });
+    expect(noDevice.status).toBe(400);
   });
 
   it('commands: owner issues to member (201), stranger 403, member sees + acks', async () => {

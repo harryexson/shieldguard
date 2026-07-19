@@ -1,0 +1,12 @@
+{
+  "name": "@shieldguard/shared",
+  "version": "1.0.0",
+  "description": "ShieldGuard single source of truth: subscription tiers, feature catalogue, RBAC, brand tokens and API contracts shared across backend, mobile, office and landing page.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "files": [
+    "*.js",
+    "*.d.ts"
+  ]
+}

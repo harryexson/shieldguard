@@ -1,52 +1,29 @@
-const fs = require('fs');
-const path = require('path');
+'use strict';
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const SUB_PATH = path.join(DATA_DIR, 'subscriptions.json');
+// SQLite-backed subscription/entitlement store. Replaces the JSON file store.
+// Keeps getSubscription, setSubscription, getEntitlements exports.
 
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+const { getDb } = require('./db');
 
-function load() {
-  ensureDir();
-  try {
-    if (fs.existsSync(SUB_PATH)) return JSON.parse(fs.readFileSync(SUB_PATH, 'utf-8'));
-  } catch (_) {
-    /* corrupted — start fresh */
-  }
-  return {};
-}
-
-function save(db) {
-  ensureDir();
-  fs.writeFileSync(SUB_PATH, JSON.stringify(db, null, 2), 'utf-8');
-}
-
-// deviceId -> { tier, plan, status, since }
 function getSubscription(deviceId) {
-  const db = load();
-  return (
-    db[deviceId] || {
-      tier: 'free',
-      plan: 'free',
-      status: 'active',
-      since: Date.now(),
-    }
-  );
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM subscriptions WHERE device_id = ?').get(deviceId);
+  if (row) return { tier: row.tier, plan: row.plan, status: row.status, since: row.since };
+  return { tier: 'free', plan: 'free', status: 'active', since: Date.now() };
 }
 
 function setSubscription(deviceId, tier, plan) {
-  const db = load();
-  db[deviceId] = { tier, plan, status: 'active', since: Date.now() };
-  save(db);
-  return db[deviceId];
+  const db = getDb();
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO subscriptions (device_id, tier, plan, status, since) VALUES (?, ?, ?, 'active', ?)
+     ON CONFLICT(device_id) DO UPDATE SET tier=excluded.tier, plan=excluded.plan, status='active', since=excluded.since`
+  ).run(deviceId, tier, plan, now);
+  return { tier, plan, status: 'active', since: now };
 }
 
-// If the device belongs to a Family plan (as owner or active member) it inherits
-// the family tier, which includes every premium feature across up to deviceLimit devices.
 function getEntitlements(deviceId) {
-  const { featuresForTier } = require('./features');
+  const { featuresForTier } = require('@shieldguard/shared');
   const { getGroupForDevice, publicView } = require('./family');
   const group = getGroupForDevice(deviceId);
   if (group) {

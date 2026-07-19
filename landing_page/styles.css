@@ -9,13 +9,17 @@
 }
 
 :root {
-    --primary: #0033cc;
-    --primary-dark: #002294;
-    --secondary: #40c4ff;
-    --danger: #ff4444;
-    --success: #10b981;
-    --warning: #fbbf24;
-    --dark-bg: #0a0e27;
+    /* Brand tokens — now aligned to the canonical palette in shared/brand.js
+       (single source of truth for the whole platform). Rebrand there and it
+       propagates to mobile, office, backend and this landing page. */
+    --primary: #1F4068;        /* brand.accent */
+    --primary-dark: #0A1628;   /* brand.primary */
+    --secondary: #00D9A5;      /* brand.safe (teal accent) */
+    --accent: #1F4068;         /* brand.accent */
+    --danger: #FF4757;         /* brand.danger */
+    --success: #00D9A5;        /* brand.safe */
+    --warning: #FFB800;        /* brand.warning */
+    --dark-bg: #0A1628;        /* brand.primary */
     --light-bg: #f9f9f9;
     --gray-100: #f3f4f6;
     --gray-200: #e5e7eb;

@@ -7,7 +7,7 @@ import { FeatureGate } from '../components/FeatureGate';
 import { api } from '../services/api';
 import { COLORS } from '../constants';
 
-const TIER_LABEL: Record<string, string> = { free: 'Free', standard: 'Standard', premium: 'Premium' };
+import { TIER_LABELS } from '@shieldguard/shared';
 
 export function SettingsScreen() {
   const { dispatch } = useSecurity();
@@ -44,7 +44,7 @@ export function SettingsScreen() {
       <TouchableOpacity style={styles.planCard} onPress={() => navigation.navigate('Subscription')}>
         <View style={styles.planInfo}>
           <Text style={styles.planLabel}>Your plan</Text>
-          <Text style={styles.planName}>{TIER_LABEL[tier]}</Text>
+          <Text style={styles.planName}>{TIER_LABELS[tier]}</Text>
         </View>
         <Text style={styles.planChevron}>Manage ›</Text>
       </TouchableOpacity>

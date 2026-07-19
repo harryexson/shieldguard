@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { COLORS } from '../constants';
 import { useSubscription } from '../context/SubscriptionContext';
 import { PlanDef } from '../services/api';
-
-const TIER_LABEL: Record<string, string> = { free: 'Free', standard: 'Standard', premium: 'Premium', family: 'Family' };
+import { TIER_LABELS } from '@shieldguard/shared';
 
 export function SubscriptionScreen() {
   const { tier, entitlements, plans, subscribe, subscribeFamily, loading } = useSubscription();
@@ -26,7 +25,7 @@ export function SubscriptionScreen() {
 
       <View style={styles.currentCard}>
         <Text style={styles.currentLabel}>Current plan</Text>
-        <Text style={styles.currentValue}>{TIER_LABEL[tier]}</Text>
+        <Text style={styles.currentValue}>{TIER_LABELS[tier]}</Text>
         {entitlements?.renewsAt ? (
           <Text style={styles.currentDetail}>
             Renews {new Date(entitlements.renewsAt).toLocaleDateString()}

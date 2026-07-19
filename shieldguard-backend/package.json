@@ -8,7 +8,13 @@
     "dev": "node src/index.js",
     "seed": "node scripts/seed-threats.js",
     "test": "jest --runInBand",
-    "lint": "eslint src --ext .js"
+    "lint": "eslint src --ext .js",
+    "postinstall": "node ../../scripts/link-shared.js"
+  },
+  "jest": {
+    "setupFiles": [
+      "<rootDir>/tests/jest.setup.js"
+    ]
   },
   "dependencies": {
     "cors": "^2.8.5",
