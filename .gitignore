@@ -21,5 +21,8 @@ shieldguard-backend/data/*
 .env.local
 *.local
 
+# Dev email output (emails written here in dev mode instead of sent)
+.emails/
+
 # OS
 .DS_Store

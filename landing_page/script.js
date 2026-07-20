@@ -4,7 +4,7 @@
 // Edit these to point at your real store listings and backend.
 const SHIELDGUARD = {
   // Backend API (used for live stats + Stripe checkout)
-  backend: 'http://localhost:4000',
+  backend: 'http://localhost:3000',
 
   // Store listings (replace with your real URLs)
   playStore: 'https://play.google.com/store/apps/details?id=com.shieldguard',

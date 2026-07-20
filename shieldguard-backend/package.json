@@ -9,7 +9,7 @@
     "seed": "node scripts/seed-threats.js",
     "test": "jest --runInBand",
     "lint": "eslint src --ext .js",
-    "postinstall": "node ../../scripts/link-shared.js"
+    "postinstall": "node ../scripts/link-shared.js"
   },
   "jest": {
     "setupFiles": [
@@ -18,10 +18,12 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",
     "express-validator": "^7.2.0",
     "helmet": "^8.0.0",
+    "nodemailer": "^9.0.3",
     "stripe": "^17.7.0",
     "uuid": "^10.0.0"
   },

@@ -160,11 +160,18 @@ function registerWebhook(app) {
     if (event && event.type === 'checkout.session.completed') {
       const plan = event.data?.object?.metadata?.plan;
       const deviceId = event.data?.object?.client_reference_id;
+      const email = event.data?.object?.customer_email || null;
       if (deviceId && plan) {
         setSubscription(deviceId, plan, plan);
         if (plan === 'family') {
           const { createFamily } = require('./family');
           createFamily(deviceId, 'My Family');
+        }
+        if (email) {
+          const { sendSubscriptionConfirmation } = require('./email');
+          sendSubscriptionConfirmation({ email, plan, deviceId }).catch((e) =>
+            console.error('[billing] failed to send confirmation email:', e.message),
+          );
         }
       }
       console.log(`[billing] Checkout completed for plan: ${plan} device: ${deviceId || '(none)'}`);
