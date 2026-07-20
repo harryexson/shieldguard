@@ -12,18 +12,21 @@ export async function hashPin(pin: string): Promise<string> {
 
 // ─── AES encryption/decryption for the vault ─────────────────────────────
 // Key is derived from the PIN + a random per-entry salt using PBKDF2, then
-// used by crypto-js AES. Ciphertext is base64 of salt + iv + ciphertext.
+// used by crypto-js AES. Output is `salt|iv|ciphertext|hmac` (hex).
 //
-// SECURITY NOTE: crypto-js only implements AES-CBC/-CFB/-CTR/-OFB — it does
-// NOT support AES-GCM. CBC provides confidentiality but NOT authenticated
-// encryption, so ciphertext can be tampered with undetected. This is a known
-// gap: a production build should migrate to a native AES-256-GCM module
-// (e.g. react-native-aes-gcm or WebCrypto via expo) for authenticated
-// encryption. Until then we at least use a strong KDF: PBKDF2-HMAC-SHA256
-// (crypto-js defaults to SHA-1, which this audit rejects) at a high iteration
-// count.
+// Authenticated encryption (Encrypt-then-MAC with HMAC-SHA256) so tampering
+// is detected — plain CBC alone is malleable. crypto-js has no AES-GCM; a
+// native AES-256-GCM module (react-native-aes-gcm / WebCrypto via expo) is
+// preferred when available on-device, but HMAC+CBC is a sound, buildable
+// fallback. KDF is PBKDF2-HMAC-SHA256 at a high iteration count.
 const PBKDF2_ITERATIONS = 250000;
 const PBKDF2_HASHER = CryptoJS.algo.SHA256;
+
+function bytesToHex(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, '0');
+  return out;
+}
 
 function deriveKey(pin: string, salt: string): CryptoJS.lib.WordArray {
   return CryptoJS.PBKDF2(pin, CryptoJS.enc.Utf8.parse(salt), {
@@ -34,25 +37,38 @@ function deriveKey(pin: string, salt: string): CryptoJS.lib.WordArray {
 }
 
 export function encryptSecret(plainText: string, pin: string): string {
-  const salt = CryptoJS.lib.WordArray.random(16).toString();
+  const salt = bytesToHex(Crypto.getRandomBytes(16));
   const key = deriveKey(pin, salt);
-  const iv = CryptoJS.lib.WordArray.random(16);
+  const iv = bytesToHex(Crypto.getRandomBytes(16));
   const encrypted = CryptoJS.AES.encrypt(plainText, key, {
-    iv,
+    iv: CryptoJS.enc.Hex.parse(iv),
     padding: CryptoJS.pad.Pkcs7,
     mode: CryptoJS.mode.CBC,
   });
-  // Store salt + iv + ciphertext, each base64-safe via CryptoJS hex.
-  return `${salt}|${iv.toString(CryptoJS.enc.Hex)}|${encrypted.toString()}`;
+  const cipherText = encrypted.toString();
+  const mac = CryptoJS.HmacSHA256(`${salt}|${iv}|${cipherText}`, key).toString(CryptoJS.enc.Hex);
+  return `${salt}|${iv}|${cipherText}|${mac}`;
 }
 
 export function decryptSecret(payload: string, pin: string): string {
-  const [salt, ivHex, cipherText] = payload.split('|');
+  const parts = payload.split('|');
+  // New format: salt|iv|cipherText|hmac (authenticated).
+  if (parts.length === 4) {
+    const [salt, ivHex, cipherText, mac] = parts;
+    const key = deriveKey(pin, salt);
+    const expectedMac = CryptoJS.HmacSHA256(`${salt}|${ivHex}|${cipherText}`, key).toString(CryptoJS.enc.Hex);
+    if (expectedMac !== mac) throw new Error('Vault entry tampered or corrupted');
+    return aesDecrypt(cipherText, key, ivHex);
+  }
+  // Legacy (pre-HMAC) format: salt|iv|cipherText.
+  const [salt, ivHex, cipherText] = parts;
   if (!salt || !ivHex || !cipherText) throw new Error('Malformed vault entry');
-  const key = deriveKey(pin, salt);
-  const iv = CryptoJS.enc.Hex.parse(ivHex);
+  return aesDecrypt(cipherText, deriveKey(pin, salt), ivHex);
+}
+
+function aesDecrypt(cipherText: string, key: CryptoJS.lib.WordArray, ivHex: string): string {
   const decrypted = CryptoJS.AES.decrypt(cipherText, key, {
-    iv,
+    iv: CryptoJS.enc.Hex.parse(ivHex),
     padding: CryptoJS.pad.Pkcs7,
     mode: CryptoJS.mode.CBC,
   });
@@ -103,19 +119,21 @@ const PW_SYMBOL = '!@#$%^&*()-_=+[]{}';
 
 export function randomPassword(length = 20): string {
   const all = PW_UPPER + PW_LOWER + PW_DIGIT + PW_SYMBOL;
+  // CSPRNG (expo-crypto) instead of Math.random for cryptographic strength.
+  const bytes = Crypto.getRandomBytes(Math.max(length, 4) + 4);
   let out = '';
   // Guarantee at least one of each class for strength.
-  out += PW_UPPER[Math.floor(Math.random() * PW_UPPER.length)];
-  out += PW_LOWER[Math.floor(Math.random() * PW_LOWER.length)];
-  out += PW_DIGIT[Math.floor(Math.random() * PW_DIGIT.length)];
-  out += PW_SYMBOL[Math.floor(Math.random() * PW_SYMBOL.length)];
-  for (let i = out.length; i < length; i++) {
-    out += all[Math.floor(Math.random() * all.length)];
+  out += PW_UPPER[bytes[0] % PW_UPPER.length];
+  out += PW_LOWER[bytes[1] % PW_LOWER.length];
+  out += PW_DIGIT[bytes[2] % PW_DIGIT.length];
+  out += PW_SYMBOL[bytes[3] % PW_SYMBOL.length];
+  for (let i = 4; i < length; i++) {
+    out += all[bytes[i] % all.length];
   }
-  // Shuffle so the guaranteed chars aren't always at the front.
+  // Fisher-Yates shuffle using CSPRNG bytes so the guaranteed chars aren't fixed.
   const arr = out.split('');
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = bytes[(arr.length - i) % bytes.length] % (i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr.join('');

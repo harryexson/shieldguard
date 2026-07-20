@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants';
-import { getDeviceId } from './device';
+import { getDeviceId, ensureRegistered, getDeviceToken, getDecoyToken, getDecoyId } from './device';
 import { Threat, ScanResult, NetworkConnection, Alert, Settings, DeviceAnonymization, MetadataStripResult, FingerprintStatus, TrackerBlock } from '../types';
 
 const api = axios.create({
@@ -8,17 +8,42 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// Attach the per-install deviceId to every request so the backend can evaluate
-// subscription entitlements (it returns 402 when a feature is not included).
-api.interceptors.request.use((config) => {
-  const deviceId = getDeviceId();
-  if (config.method?.toLowerCase() === 'get') {
-    config.params = { ...(config.params || {}), deviceId };
-  } else {
-    config.data = { deviceId, ...(config.data || {}) };
+// A separate client for DECOY (duress) traffic. It carries the decoy device's
+// own JWT so decoy vault items / duress incidents are stored under the decoy
+// identity and can never be linked to the real account.
+const decoyClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+});
+
+// Attach the verified device JWT (and the authenticated deviceId) to every
+// request. The backend trusts the JWT's subject, not a client-supplied id.
+async function attachAuth(config: any, tokenGetter: () => Promise<string | null>, idGetter: () => Promise<string | null>) {
+  const token = await tokenGetter();
+  if (token) {
+    config.headers = { ...(config.headers || {}), Authorization: `Bearer ${token}` };
+  }
+  const deviceId = await idGetter();
+  if (deviceId) {
+    if (config.method?.toLowerCase() === 'get') {
+      config.params = { ...(config.params || {}), deviceId };
+    } else {
+      // Interceptor's authenticated deviceId wins over any body-supplied one.
+      config.data = { ...(config.data || {}), deviceId };
+    }
   }
   return config;
-});
+}
+
+api.interceptors.request.use((config) => attachAuth(config, getDeviceToken, getDeviceIdAsyncOrSync));
+decoyClient.interceptors.request.use((config) => attachAuth(config, getDecoyToken, getDecoyId));
+
+// Resolves to the real deviceId (async, awaits registration so the first call
+// still carries the correct identity).
+async function getDeviceIdAsyncOrSync(): Promise<string | null> {
+  await ensureRegistered().catch(() => undefined);
+  return getDeviceId();
+}
 
 // ─── Threat API ──────────────────────────────────────────────────────
 export const threatApi = {
@@ -387,17 +412,19 @@ export const vaultApi = {
     api.delete(`/vault/items/${id}`).then((r) => r.data),
 };
 
-// ─── Decoy vault (same shape, separate namespace) ────────────────────────────
+// ─── Decoy vault (same shape, SEPARATE decoy identity) ───────────────────────
+// All decoy traffic rides the decoyClient so it is stored under the unlinkable
+// decoy device identity, never the real one.
 export const decoyApi = {
   list: (): Promise<VaultItemMeta[]> =>
-    api.get('/vault/decoy/items').then((r) => (r.data.items as VaultItemMeta[]) || []),
-  get: (id: string): Promise<VaultItem> => api.get(`/vault/decoy/items/${id}`).then((r) => r.data),
+    decoyClient.get('/vault/decoy/items').then((r) => (r.data.items as VaultItemMeta[]) || []),
+  get: (id: string): Promise<VaultItem> => decoyClient.get(`/vault/decoy/items/${id}`).then((r) => r.data),
   create: (item: { folder: string; name: string; mimeType: string; kind: string; payload: string; favorite?: boolean }): Promise<VaultItem> =>
-    api.post('/vault/decoy/items', item).then((r) => r.data),
+    decoyClient.post('/vault/decoy/items', item).then((r) => r.data),
   update: (id: string, patch: Partial<{ folder: string; name: string; mimeType: string; kind: string; payload: string; favorite: boolean }>): Promise<VaultItem> =>
-    api.put(`/vault/decoy/items/${id}`, patch).then((r) => r.data),
+    decoyClient.put(`/vault/decoy/items/${id}`, patch).then((r) => r.data),
   remove: (id: string): Promise<{ success: boolean }> =>
-    api.delete(`/vault/decoy/items/${id}`).then((r) => r.data),
+    decoyClient.delete(`/vault/decoy/items/${id}`).then((r) => r.data),
 };
 
 // ─── Password manager API ────────────────────────────────────────────────────
@@ -563,6 +590,10 @@ export interface Incident {
 export const incidentsApi = {
   create: (i: { type: IncidentType; location?: any; battery?: number; note?: string; metadata?: any }): Promise<Incident> =>
     api.post('/incidents', i).then((r) => r.data),
+  // Duress alerts are filed under the DECOY identity so they cannot be linked
+  // to the real vault/account (closes the duress-leak gap).
+  createDecoy: (i: { type: IncidentType; location?: any; battery?: number; note?: string; metadata?: any }): Promise<Incident> =>
+    decoyClient.post('/incidents', i).then((r) => r.data),
   list: (): Promise<Incident[]> => api.get('/incidents').then((r) => r.data),
 };
 

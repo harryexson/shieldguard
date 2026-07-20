@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const SESSION_COOKIE = 'sg_session';
+import { SESSION_COOKIE, verifySessionToken } from './lib/session';
 
 const PROTECTED_PREFIXES = [
   '/dashboard',
@@ -24,7 +23,9 @@ export function middleware(request: NextRequest) {
   if (!isProtected) return NextResponse.next();
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (token) return NextResponse.next();
+  // Fail CLOSED: only a valid, signature-verified, unexpired session cookie is
+  // accepted. Any missing/invalid/expired token is denied (redirect to login).
+  if (token && verifySessionToken(token)) return NextResponse.next();
 
   const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('redirect', pathname);

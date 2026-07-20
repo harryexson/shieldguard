@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { Alert, AppState } from 'react-native';
-import { clearLocalData } from '../services/crypto';
+import { clearLocalData } from '../services/device';
 import { incidentsApi } from '../services/api';
 import { getBatteryLevel } from '../services/deviceInfo';
 import { auditLog } from '../services/auditLog';
@@ -30,10 +30,13 @@ export function PanicProvider({ children }: { children: ReactNode }) {
       const battery = await getBatteryLevel();
       await incidentsApi.create({ type: 'panic', battery, note: 'Panic Lock triggered' });
     } catch { /* ignore network failure — local lock is what matters */ }
-    // Best-effort: attempt to clear clipboard.
+    // Best-effort: attempt to clear clipboard. `react-native`'s Clipboard was
+    // removed in RN 0.76; use expo-clipboard (graceful no-op if unavailable).
     try {
-      const { Clipboard } = require('react-native');
-      Clipboard.setString('');
+      const Clipboard = require('expo-clipboard');
+      if (Clipboard && typeof Clipboard.setStringAsync === 'function') {
+        await Clipboard.setStringAsync('');
+      }
     } catch { /* ignore */ }
   }, []);
 

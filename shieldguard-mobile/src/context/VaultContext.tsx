@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hashPin, secureGet, secureSet, clearUnlockToken, cacheUnlockToken } from '../services/crypto';
 import { incidentsApi } from '../services/api';
+import { ensureDecoyRegistered } from '../services/device';
 import { auditLog } from '../services/auditLog';
 
 type Mode = 'real' | 'decoy';
@@ -67,6 +68,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await secureSet(DURESS_MARKER_KEY, duressHash);
     setHasPin(true);
     setDuressConfigured(true);
+    // Provision a SEPARATE, unlinkable decoy identity so duress sessions can
+    // never be tied back to the real account (closes the duress-leak gap).
+    try { await ensureDecoyRegistered(); } catch { /* retry on next duress unlock */ }
   }, []);
 
   const unlock = useCallback(async (enteredPin: string): Promise<boolean> => {
@@ -80,11 +84,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const marker = await secureGet(DURESS_MARKER_KEY);
 
     if (duressHash && marker && enteredHash === duressHash) {
-      // Duress PIN entered: open decoy vault silently, report incident.
+      // Duress PIN entered: open decoy vault silently. The duress alert is filed
+      // under the DECOY identity, never the real one, so it can't be linked back.
       setPinState(enteredPin);
       setMode('decoy');
       setIsUnlocked(true);
-      incidentsApi.create({ type: 'duress', note: 'Silent duress unlock' }).catch(() => undefined);
+      try { await ensureDecoyRegistered(); } catch { /* decoy identity may already exist */ }
+      incidentsApi.createDecoy({ type: 'duress', note: 'Silent duress unlock' }).catch(() => undefined);
       return true;
     }
     if (enteredHash === normalHash) {

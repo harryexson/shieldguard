@@ -26,6 +26,7 @@
     "expo-network": "~7.0.5",
     "expo-camera": "~16.0.5",
     "expo-image-manipulator": "~13.0.5",
+    "expo-clipboard": "~7.0.0",
     "expo-contacts": "~14.0.5",
     "react-native-qrcode-svg": "^6.3.0",
     "expo-notifications": "~0.29.5",
